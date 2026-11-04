@@ -1,29 +1,21 @@
-# All three Android apps
+# All three Android apps — automatic accounting test build
 
-Capacitor 7 projects for **Main retail** and **Vendor Ordering** retain the supplied compiled apps and native filesystem, sharing, browser, app and geolocation plugins. Camera permission supports existing camera/barcode workflows. **Business Accounting** is a native Java Android HTTPS client with company connection setup, web login, printing, file picking and downloads.
-
-| APK | Version | Android application ID |
+| App | Version | Android application ID |
 | --- | --- | --- |
-| Backwoods Brew Connected | 8.2.1 | `com.backwoodsbrew.main.connected` |
-| Backwoods Vendor Connected | 4.1.1 | `com.backwoodsbrew.vendor.connected` |
-| Backwoods Business Accounting | 1.0.0 | `com.backwoodsbrew.accounting` |
+| Backwoods Brew Connected | 8.2.2 | `com.backwoodsbrew.main.connected` |
+| Backwoods Vendor Connected | 4.1.2 | `com.backwoodsbrew.vendor.connected` |
+| Backwoods Business Accounting | 1.0.1 | `com.backwoodsbrew.accounting` |
 
-These IDs are deliberately separate from unknown existing APK identities. They install alongside existing apps and cannot read another Android app's private local data. Sync/export existing records and sign in with the usual source-app account. No prior Android signing keystore or original Android project was supplied, so these are not claimed to be in-place upgrades of an existing APK.
+Main and vendor keep their supplied compiled apps and Firebase behavior, and now automatically send authenticated accounting snapshots while the owner is signed in and the app is open. Accounting has a native Firebase email/password sign-in and company-service discovery screen. Users do not enter a server URL. Source staff roles do not gain access to consolidated accounting or payroll.
 
-## How the accounting transfer works on Android
+**One-time administrator setup is still required:** merge/review the Firestore rules, link the Firebase owner to the existing ledger, and deploy a persistent HTTPS company accounting service. See [Firebase setup](../firebase/SETUP.md) and [shared hosting](SHARED-ACCOUNTING.md). Missing deployment produces a clear setup error; these APKs cannot deploy a server merely by being installed. Live company sync/rules have not been verified.
 
-The Windows file connector is not used inside Android's sandbox. The mobile app keeps the source app's existing Firebase synchronization. A connected desktop instance signed into the same source account must receive those cloud records, then forwards its validated snapshot to Business Accounting on that Windows computer/user.
+Download [all APKs and Windows installers](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/automatic-accounting-test-1). They are test builds, not production-certified releases. Original APK identities/signing keys were not provided; connected source apps install alongside originals. They cannot read another app's private device data. Sync/export and verify records before changing apps, retaining originals and backups.
 
-This relay depends on the original Firebase authentication, data model, security rules and existing sync behavior. It has not been verified against live company credentials. Records that are device-local and not part of the original source sync do not become cross-device automatically. No new public or unauthenticated accounting API is enabled by these APKs.
+## Rebuild on Windows
 
-The Business Accounting APK asks for the shared server's HTTPS origin. No service is preconfigured or deployed. It cannot read a PC's loopback-only service from the phone. See [shared service setup and remaining Firebase work](SHARED-ACCOUNTING.md). Direct Firebase accounting integration is unfinished.
+Install Node.js 22+ and Android Studio with Java 21, Android API 35 and Build Tools 35.0.0. Extract the complete repository and run `BUILD-APK-WINDOWS.cmd`. It produces all three debug-signed test APKs. Main/vendor use pinned Capacitor 7 dependencies; the accounting client is a native Gradle project with company-origin tests.
 
-## Build or install
+Use the original signing key to update an installed APK; a different debug/release key cannot update it in place. Production releases need your own securely retained release key. No private signing keys, local SDK paths or business databases are committed. Back up records before any signing-identity change or uninstall.
 
-Installable debug-signed test APKs are under `android-apks` when built. Use them on a test device/profile first. Device login, live Firebase transfer, barcode/camera, location and physical printing still require actual device tests. A compiled APK and valid signature do not establish those behaviors.
-
-For a Windows rebuild, install Node.js 22+ and Android Studio with Java 21, Android 15 / API 35 and Android Build Tools 35.0.0. Extract the entire repository and run `BUILD-APK-WINDOWS.cmd` to build all three APKs. You can also open each app's `android` folder in Android Studio and build it there. The accounting client has no npm dependency; its Gradle project includes origin-boundary unit tests.
-
-For a production release, use Android Studio's Generate Signed Bundle / APK workflow and your own securely backed-up release keystore. Do not commit signing keys, passwords, `local.properties`, service-account keys or private company data. Updating an older APK requires its original application ID and signing key, which cannot be reconstructed from the supplied web/Electron packages.
-
-The Gradle distribution is pinned to 8.11.1 with Google's generated project settings and its official SHA-256 checksum. Android system TLS verification and cleartext defaults remain in place; no certificate checks are disabled. Android cloud auto-backup is disabled for the new app profiles. Original in-app backup/export remains available where supported.
+APK signatures/versions/hashes are verified. Physical Android camera, location, printing, login and live Firebase reconciliation still need testing. The native accounting Print button opens Android's printer/PDF service; physical printing requires an Android print service.

@@ -23,7 +23,7 @@ public final class CompanyOrigin {
                 throw new IllegalArgumentException();
             return "https://" + host + (uri.getPort() > 0 && uri.getPort() != 443 ? ":" + uri.getPort() : "");
         } catch (Exception error) {
-            throw new IllegalArgumentException("Enter your company's HTTPS accounting address, for example https://books.yourcompany.com. A Firebase project ID alone is not an accounting server address.");
+            throw new IllegalArgumentException("The company accounting service has an invalid secure address. Ask the administrator to fix its Firebase connection settings.");
         }
     }
 

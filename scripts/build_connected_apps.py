@@ -79,13 +79,15 @@ def common(destination,source,html):
     main.write_text(''.join(lines)+"\nrequire('./desktop-feed.cjs');\n")
     preload=electron/'preload.cjs'
     preload.write_text(preload.read_text()+"\nrequire('electron').contextBridge.exposeInMainWorld('businessAccounting', {status:()=>require('electron').ipcRenderer.invoke('business-accounting:status')});\n")
-    shutil.copy2(ROOT/'connectors/source-panel.js',html.parent/'business-accounting-panel.js')
-    html.write_text(replace_once(html.read_text(),'</body>','<script src="./business-accounting-panel.js"></script></body>'))
+    shutil.copy2(ROOT/'connectors/firebase-feed.js',html.parent/'firebase-accounting.js')
+    html.write_text(replace_once(html.read_text(),'</body>',f'<script src="./firebase-accounting.js" data-source="{source}"></script></body>'))
 
 
 MAIN_HOOK=r'''
+window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.projectId,auth:Ba});
+
   window.__bwAccountingSnapshot = () => {
-    if (!a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
+    if (t || !a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
     const keys=['accounts','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores'];
     const data={};
     for(const key of keys) data[key]=(Array.isArray(r[key])?r[key]:[]).filter(row=>!['vendor-ordering','vendor'].includes(String(row.sourceSystem||row.sourceApp||'').toLowerCase()));
@@ -98,6 +100,8 @@ MAIN_HOOK=r'''
 '''
 
 VENDOR_HOOK=r'''
+window.__bwAccountingCloudContext=()=>s.mode==='synced'&&!s.pendingCount?({uid:n?.uid,projectId:ch.projectId,auth:Hr}):null;
+
 window.__bwAccountingSnapshot=()=>{
  if(!n||n.role!=='owner'||n.active===false||!r)return null;
  const data={};
@@ -149,7 +153,7 @@ def build(main_dir,vendor_asar,output):
     # The uploaded apps already contain bundled renderer dependencies. The Electron
     # main/preload code uses only Electron and Node built-ins; no npm runtime tree
     # was present in the supplied vendor ASAR.
-    for destination,source,version in [(main_dest,'main','8.2.1'),(vendor_dest,'vendor','4.1.1')]:
+    for destination,source,version in [(main_dest,'main','8.2.2'),(vendor_dest,'vendor','4.1.2')]:
         original_package=json.loads((destination/'package.json').read_text())
         connected_package={key:original_package[key] for key in ['name','author','type','main'] if key in original_package}
         connected_package.update({'version':version,'private':True,'productName':PROFILE_CONFIG[source]['connectedProfile'],
@@ -181,7 +185,7 @@ def build(main_dir,vendor_asar,output):
     (output/'README.txt').write_text('''CONNECTED TEST COPIES — preserve your installed apps and data.
 
 These are application archives, not Windows installers. The originals were not changed.
-Installer-ready versions are Main 8.2.1 Connected and Vendor 4.1.1 Connected,
+Installer-ready versions are Main 8.2.2 Connected and Vendor 4.1.2 Connected,
 based on the uploaded Main 8.2.0 and Vendor 4.1.0 packages. Connected editions copy
 the previous local profile on first launch and leave that original profile intact.
 Back up both source apps before testing. A separate installation folder does not

@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
     private WebView browser;
     private String origin;
+    private String pendingFirebaseToken;
     private ValueCallback<Uri[]> fileCallback;
     private TextView status;
     private static final int FILE_REQUEST = 120;
@@ -40,11 +41,7 @@ public class MainActivity extends AppCompatActivity {
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         getWindow().setStatusBarColor(forest);
-        origin = getPreferences(MODE_PRIVATE).getString("company_origin", "");
-        if (origin.isEmpty()) setup(); else {
-            try { origin = CompanyOrigin.normalize(origin); openBooks(); }
-            catch (IllegalArgumentException error) { setup(); }
-        }
+        origin=""; setup();
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
@@ -63,24 +60,31 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setup() {
-        LinearLayout layout = column(); layout.setPadding(dp(24),dp(36),dp(24),dp(24));
-        layout.addView(text("BACKWOODS", 17));
-        layout.addView(text("Business Accounting", 29));
-        layout.addView(text("Connect to your company books", 21));
-        layout.addView(text("Use the secure address provided when your shared accounting service is set up. Then sign in with your Business Accounting account.", 16));
-        EditText address = new EditText(this); address.setSingleLine(true);
-        address.setHint("https://books.yourcompany.com");
-        address.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        address.setText(origin); layout.addView(address);
-        TextView error = text("",14); layout.addView(error);
-        layout.addView(button("Connect to company", view -> {
-            try {
-                origin = CompanyOrigin.normalize(address.getText().toString());
-                getPreferences(MODE_PRIVATE).edit().putString("company_origin",origin).apply(); openBooks();
-            } catch (IllegalArgumentException problem) { error.setText(problem.getMessage()); }
-        }));
-        layout.addView(text("Cloud setup required",18));
-        layout.addView(text("This app does not contain a preconfigured server. Firebase source records need an accounting integration; entering a Firebase console or project address here will not create that integration. Your existing Windows books remain on that computer until shared hosting is configured.",14));
+        LinearLayout layout=column();layout.setPadding(dp(24),dp(36),dp(24),dp(24));
+        layout.addView(text("BACKWOODS",17));layout.addView(text("Business Accounting",29));
+        layout.addView(text("Sign in to your company",21));
+        layout.addView(text("Use the same owner Firebase account as your retail and wholesale apps. Your accounting connection is found automatically.",16));
+        EditText email=new EditText(this);email.setSingleLine(true);email.setHint("Company email");
+        email.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);layout.addView(email);
+        EditText password=new EditText(this);password.setSingleLine(true);password.setHint("Password");
+        password.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);layout.addView(password);
+        TextView error=text("",14);layout.addView(error);
+        Button connect=button("Sign in",null);
+        connect.setOnClickListener(view->{
+            final String address=email.getText().toString().trim(),secret=password.getText().toString();
+            if(address.isEmpty()||secret.isEmpty()){error.setText("Enter your company email and password.");return;}
+            connect.setEnabled(false);error.setText("Signing in and finding your company books…");password.setText("");
+            new Thread(()->{
+                try{
+                    FirebaseDiscovery.Company company=FirebaseDiscovery.signIn(address,secret);
+                    runOnUiThread(()->{if(isDestroyed())return;origin=company.origin;pendingFirebaseToken=company.idToken;
+                        getPreferences(MODE_PRIVATE).edit().putString("firebase_company_origin",origin).apply();openBooks();});
+                }catch(Exception problem){runOnUiThread(()->{if(isDestroyed())return;error.setText(problem.getMessage()==null?"Cannot reach Firebase. Check your Internet connection.":problem.getMessage());connect.setEnabled(true);});}
+            },"company-sign-in").start();
+        });
+        layout.addView(connect);
+        layout.addView(text("Your records stay together",18));
+        layout.addView(text("Retail and wholesale keep their own books. Business Accounting combines their accounting records with payroll, production costs and business expenses. Your administrator must complete the one-time company cloud setup before the first connection.",14));
         setContentView(layout);
     }
 
@@ -89,8 +93,8 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout bar = new LinearLayout(this);
         bar.addView(button("Books", v -> browser.loadUrl(origin + "/")));
         bar.addView(button("Print", v -> print()));
-        bar.addView(button("Connection", v -> new AlertDialog.Builder(this)
-            .setTitle("Change company connection?")
+        bar.addView(button("Company account", v -> new AlertDialog.Builder(this)
+            .setTitle("Sign in to another company?")
             .setMessage("This signs you out on this phone and clears its cached web data. Company records stay on the accounting server.")
             .setNegativeButton("Cancel",null).setPositiveButton("Change",(d,w) -> {
                 browser.stopLoading(); browser.loadUrl("about:blank"); browser.clearCache(true);
@@ -98,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
                 WebStorage.getInstance().deleteAllData();
                 CookieManager.getInstance().removeAllCookies(done -> {
                     CookieManager.getInstance().flush();
-                    getPreferences(MODE_PRIVATE).edit().remove("company_origin").apply(); setup();
+                    getPreferences(MODE_PRIVATE).edit().remove("firebase_company_origin").apply(); setup();
                 });
             }).show()));
         layout.addView(bar);
@@ -132,7 +136,13 @@ public class MainActivity extends AppCompatActivity {
                 if (request.isForMainFrame()) status.setText("Cannot reach the company server. Check its address and your Internet connection.");
             }
             @Override public void onPageFinished(WebView view, String url) {
-                if (CompanyOrigin.contains(origin,url)) status.setText(origin + " · Print saves PDF or sends to your printer");
+                if (CompanyOrigin.contains(origin,url)) {
+                    status.setText("Company books · Print saves PDF or sends to your printer");
+                    if(pendingFirebaseToken!=null){
+                        String encoded=org.json.JSONObject.quote(pendingFirebaseToken);pendingFirebaseToken=null;
+                        view.evaluateJavascript("fetch('/api/auth/firebase-login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Accounting-Request':'1'},body:JSON.stringify({idToken:"+encoded+"})}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Company login failed');location.reload();}).catch(e=>{document.body.textContent=e.message;})",null);
+                    }
+                }
             }
         });
         browser.setWebChromeClient(new WebChromeClient() {

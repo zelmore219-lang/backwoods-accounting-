@@ -26,6 +26,7 @@ from .payroll_provider import Gusto,SecretStore,STATES,ProviderError,review_payr
 from . import tax_watch
 from .printing import render as print_document
 from .locking import RunLock
+from .firebase_sync import Firebase,SCHEMA as FIREBASE_SCHEMA
 
 ROOT=Path(__file__).resolve().parents[1]
 MAX_BODY=40*1024*1024
@@ -56,10 +57,44 @@ class Application:
         self.write_lock=threading.RLock()
         self.cookie=secrets.token_urlsafe(32)
         self.feed_errors={}
+        self.firebase=Firebase(self.data_dir)
+        self.firebase_lock=threading.RLock()
+        self.firebase_status={'connected':False,'message':'Owner Firebase sign-in has not been linked yet.'}
         ledger=Ledger(self.path)
+        ledger.db.executescript(FIREBASE_SCHEMA)
         ledger.close()
 
     def ledger(self):return Ledger(self.path)
+
+    def watch_firebase(self):
+        hashes={}
+        while not self.stop.is_set():
+            try:
+                with self.firebase_lock:connected=bool(self.firebase.bearer())
+                if not connected:
+                    self.stop.wait(15);continue
+                with self.firebase_lock:
+                    ledger=self.ledger()
+                    try:link=ledger.db.execute('SELECT * FROM firebase_link WHERE uid=?',(self.firebase.connection['uid'],)).fetchone()
+                    finally:ledger.close()
+                    if not link:raise AccountingError('Link the Firebase account from the owner settings before importing cloud records.')
+                    self.firebase.publish_service(self.public_origin)
+                receipts=self.firebase_status.get('sources',{})
+                self.firebase_status={'connected':True,'message':'Firebase connected. Checking retail and wholesale records.','sources':receipts}
+                for source in ['main','vendor']:
+                    try:
+                        with self.firebase_lock:result=self.firebase.snapshot(source,hashes.get(source))
+                        if result:
+                            digest,packet=result
+                            receipt=self.process({'source':source,'payload':packet,'filename':'Automatic Firebase '+source+' feed'})
+                            hashes[source]=digest
+                            receipts[source]={'at':now(),'added':receipt['added'],'changed':receipt['changed'],'duplicates':receipt['duplicates']}
+                    except Exception as error:
+                        receipts[source]={'error':str(error)}
+                        self.firebase_status['message']='One or more source imports need review; other source imports continue.'
+            except Exception as error:
+                self.firebase_status={'connected':False,'message':str(error)}
+            self.stop.wait(15)
 
     def process(self,value,preview=False):
         source=value.get("source")
@@ -248,6 +283,7 @@ class Handler(BaseHTTPRequestHandler):
                     if balance>0:value['aging'].append({'source':r['source'],'id':r['source_id'],'reference':d['reference'],'kind':d['kind'],'party':d['party'],'balance':balance,'dueDate':due,'daysOverdue':max(0,(__import__('datetime').date.today()-__import__('datetime').date.fromisoformat(due)).days) if due else None})
                 value["feedDirectory"]=str(self.app.feed_dir)
                 value["feedErrors"]=dict(self.app.feed_errors)
+                value['firebaseStatus']=dict(self.app.firebase_status)
                 value["feeds"]={}
                 for source in ["main","vendor"]:
                     p=self.app.feed_dir/(source+"-status.json")
@@ -310,7 +346,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized() or self.headers.get("X-Accounting-Request")!="1":
             self.respond({"error":"Request is not from the accounting app"},403);return
         if self.user['role']=='viewer':self.respond({'error':'Your role is read-only'},403);return
-        if (path in {'/api/settings','/api/users','/api/provider/connect','/api/provider/submit','/api/tax-watch/configure','/api/tax-watch/review'} or path.startswith('/api/provider/')) and self.user['role']!='owner':self.respond({'error':'Owner access required'},403);return
+        if (path in {'/api/settings','/api/users','/api/provider/connect','/api/provider/submit','/api/tax-watch/configure','/api/tax-watch/review','/api/firebase/connect'} or path.startswith('/api/provider/')) and self.user['role']!='owner':self.respond({'error':'Owner access required'},403);return
         ledger=None
         self.app.write_lock.acquire()
         try:
@@ -337,6 +373,12 @@ class Handler(BaseHTTPRequestHandler):
                                 tax_watch.check_source(local,state)
                         finally:local.close()
                     threading.Thread(target=check_now,daemon=True).start();result={'message':'Official-source checks started. Refresh this screen to see results.'}
+                elif path=='/api/firebase/connect':
+                    verification,_=auth.login(ledger,{'username':self.user['username'],'password':value.get('ownerPassword','')})
+                    auth.logout(ledger,verification)
+                    with self.app.firebase_lock:
+                        result=self.app.firebase.connect(ledger,self.user,value.get('email',''),value.get('password',''))
+                        self.app.firebase_status={'connected':True,'message':'Company linked. Automatic imports will start shortly.'}
                 elif path=='/api/provider/connect':
                     for key in ['accessToken','companyId']:
                         if not value.get(key):raise AccountingError('Enter the approved company connection details')
@@ -512,6 +554,11 @@ class Handler(BaseHTTPRequestHandler):
                 token,user=auth.login(ledger,value);self.respond({'user':user},session_token=token)
             elif path=='/api/auth/login':
                 token,user=auth.login(ledger,value);self.respond({'user':user},session_token=token)
+            elif path=='/api/auth/firebase-login':
+                uid=self.app.firebase.verify_identity(str(value.get('idToken','')))
+                row=ledger.db.execute('SELECT u.* FROM users u JOIN firebase_link f ON f.user_id=u.id WHERE f.uid=?',(uid,)).fetchone()
+                if not row:raise AccountingError('This Firebase account has not been linked to the company ledger by its owner')
+                token,user=auth.issue_session(ledger,row);self.respond({'user':user},session_token=token)
             elif path=='/api/auth/logout':
                 auth.logout(ledger,self.cookie_value('bw_session'));self.respond({'ok':True},session_token='')
             elif path=='/api/auth/password':
@@ -559,6 +606,7 @@ def main():
     server=ThreadingHTTPServer(("127.0.0.1",args.port),Handler)
     server.application=app
     thread=threading.Thread(target=app.watch_feeds,daemon=True)
+    threading.Thread(target=app.watch_firebase,daemon=True).start()
     thread.start()
     tax_thread=threading.Thread(target=tax_watch.monitor,args=(app,),daemon=True)
     tax_thread.start()

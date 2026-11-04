@@ -33,7 +33,7 @@ node --check source-app-updates\vendor\electron\desktop-feed.cjs
 if errorlevel 1 goto failed
 node source-app-updates\main\scripts\verify.cjs
 if errorlevel 1 goto failed
-node --test tests\source_updates.test.cjs
+node tests\source_updates.test.cjs
 if errorlevel 1 goto failed
 
 echo Building the Backwoods Brew Connected installer...

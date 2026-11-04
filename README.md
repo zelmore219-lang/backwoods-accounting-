@@ -4,7 +4,7 @@ A standalone company ledger for Backwoods Brew retail activity, Vendor Ordering 
 
 ## Windows installation
 
-Use `Backwoods-Business-Accounting-Setup-1.0.0.exe` from the release package. It bundles the desktop shell and Python runtime: a separate Python installation is not required. Install for your Windows user, launch Business Accounting, and create the first owner account. There is no default username or password. Use a passphrase of at least 12 characters.
+Use `Backwoods-Business-Accounting-Setup-1.0.1.exe` from the release package. It bundles the desktop shell and Python runtime: a separate Python installation is not required. Install for your Windows user, launch Business Accounting, and create the first owner account. There is no default username or password. Use a passphrase of at least 12 characters.
 
 The application stores your database in `%LOCALAPPDATA%\BackwoodsBusinessAccounting`. Uninstalling the application preserves this data. Back it up before upgrading. Closing the window keeps the app in the system tray when supported, so enabled local feeds and tax-source checks can continue. Use the tray menu's Exit command to stop it. A computer that is off cannot run the monitor.
 
@@ -26,11 +26,11 @@ The installer is unsigned unless built with your organization's signing setup. A
 
 ## Source-app connections
 
-Complete connected editions of **both** supplied source apps are now in [source-app-updates](source-app-updates/README.md). Extract the whole repository and run `BUILD-APP-UPDATES-WINDOWS.cmd` to build Main 8.2.1 and Vendor 4.1.1 installers. Node.js 22+ is required; these two builds do not require Python. These replace the earlier manual ASAR replacement instructions.
+Complete connected editions of **both** supplied source apps are now in [source-app-updates](source-app-updates/README.md). Extract the whole repository and run `BUILD-APP-UPDATES-WINDOWS.cmd` to build Main 8.2.2 and Vendor 4.1.2 installers. Node.js 22+ is required; these two builds do not require Python. These replace the earlier manual ASAR replacement instructions.
 
 Back up and close the originals first. Connected editions install alongside them with separate profiles. On first launch, the helper copies a detected original profile without modifying it; ambiguous or unsafe profile choices stop with an explanation. Check your records before using the connected edition for future entries. The preserved original profile is not a second synchronized local copy. For isolated tests, use a separate Windows user for all three applications; `BACKWOODS_TEST_DATA_DIR` isolates only a source profile.
 
-Open the source app, sign in as owner, and enable the Business Accounting connection in the lower-left panel. The connected app writes a read-only snapshot into the same Windows user's accounting `feeds` folder. Business Accounting validates and imports it while running. These local connectors do not synchronize across computers and do not write to either source app's financial records or Firebase. A secure hosted backend is needed for cross-computer synchronization.
+Sign in to each source app as the Firebase owner. Changed financial snapshots send automatically to that owner's private Firebase namespace. The updated Business Accounting service imports both feeds into one ledger while running. Source records and the main app's own ledger remain intact. Windows also retains its automatic local-file route. The one-time [Firebase/accounting setup](firebase/SETUP.md) must be completed before live cloud transfers; no Firebase rules or hosted service have been deployed by this build.
 
 The vendor connected copy additionally captures historical-at-event unit costs for future delivery and return movements. Existing movements without captured unit costs appear in a review queue. Enter actual historical costs from supporting records; current catalog costs are not assumed to be historical costs.
 
@@ -42,7 +42,7 @@ Vendor customer payments duplicated in both an invoice and the payment list are 
 
 Installable **test** APKs for Main, Vendor and Business Accounting are in [android-apks](android-apks/README.md), with hashes and version metadata. They are debug signed and have not been tested on a physical Android device. Android 6 or later is required. Original APK signing keys and Android projects were not supplied, so the two source editions install alongside existing apps.
 
-The source APKs retain existing Firebase synchronization. Automatic accounting transfer currently requires each connected Windows source app and Business Accounting running under the same Windows user. **Direct Firebase-to-accounting integration is not implemented.** The Business Accounting APK is a client for a shared HTTPS accounting service; it has no preconfigured server. See [shared service setup](android-apps/SHARED-ACCOUNTING.md). APK installation alone does not activate mobile accounting.
+The updated source APKs automatically upload authenticated accounting snapshots after owner sign-in; they no longer require a transfer link or opt-in button. The Business Accounting APK signs in to Firebase and discovers its company service automatically. **Live operation still requires one-time rules, ledger linking and service deployment.** No live deployment or device reconciliation has been verified. See [Firebase setup](firebase/SETUP.md). The sender runs while the owner app is open; staff changes must first reach it through the source's existing sync.
 
 `BUILD-APK-WINDOWS.cmd` rebuilds all three APKs. Complete Android projects and prerequisites are in [android-apps](android-apps/README.md).
 
@@ -109,7 +109,7 @@ Build the Windows installer with the checked-in desktop configuration and a chec
 2. Install **Node.js 22 or later** and **Python 3.12 or later** (including the Python launcher).
 3. Double-click `BUILD-INSTALLER-WINDOWS.cmd` in the extracted folder.
 4. It installs pinned build tools into isolated folders, downloads the verified portable runtime, runs the tests, and invokes the native Windows installer builder.
-5. The output is `dist\windows\Backwoods-Business-Accounting-Setup-1.0.0.exe`.
+5. The output is `dist\windows\Backwoods-Business-Accounting-Setup-1.0.1.exe`.
 
 The build needs Internet access and about 2 GB of free disk space. It does not need payroll credentials and does not publish anything. The installed app includes its runtime, so people installing the finished EXE do not need Python or Node.js. This Windows batch workflow has been reviewed but has not been executed on a Windows machine in this cloud session; failures remain visible in its command window.
 

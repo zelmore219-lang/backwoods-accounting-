@@ -4,8 +4,8 @@ This folder contains complete installer-ready connected app copies, not just rep
 
 | App | Uploaded base | Connected edition | Desktop shortcut |
 | --- | --- | --- | --- |
-| Main retail app | 8.2.0 | 8.2.1 | Backwoods Brew Connected |
-| Vendor / wholesale app | 4.1.0 | 4.1.1 | Backwoods Vendor Ordering Connected |
+| Main retail app | 8.2.0 | 8.2.2 | Backwoods Brew Connected |
+| Vendor / wholesale app | 4.1.0 | 4.1.2 | Backwoods Vendor Ordering Connected |
 
 The versions are based on the packages supplied for this task. Compatibility with other installed source versions has not been established.
 
@@ -15,8 +15,8 @@ Extract the complete repository ZIP. Install Node.js 22+, then double-click `BUI
 
 The outputs are:
 
-- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.1.exe`
-- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.1.exe`
+- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.2.exe`
+- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.2.exe`
 
 ## First launch and existing records
 
@@ -28,13 +28,13 @@ The outputs are:
 6. If no previous profile is found, a visible message explains that the connected edition starts fresh. Sign in to the normal account or restore a backup using the source app before enabling transfers.
 7. Check your customers, inventory, transactions and balances against the original backups before making live entries.
 
-The connected edition is the app to use for future entries. The original profile is a preserved pre-migration copy, not a second automatically synchronized local profile. Do not keep entering records in both editions. Existing Firebase synchronization continues under the source app's own rules; the connector itself does not write to Firebase.
+The connected edition is the app to use for future entries. The original profile is a preserved pre-migration copy, not a second automatically synchronized local profile. Do not keep entering records in both editions. Existing Firebase synchronization continues under the source app's own rules; the new accounting connector writes only private accounting snapshots, never rewrites source collections.
 
 ## Feed the one company ledger
 
-Open Business Accounting on the **same Windows user and computer**. In each connected source app, sign in as owner and enable **Business Accounting connection → Send to Business Accounting** in the lower-left corner.
+After the one-time [Firebase company setup](../firebase/SETUP.md), open each connected source app and sign in as the Firebase owner. Accounting copies send automatically to that owner's private namespace. The accounting service imports retail and wholesale records into the same ledger while running. No transfer link or opt-in button is required.
 
-The main app retains its accounting screens. It sends a copy of its own ledger and supporting records. Vendor Ordering sends invoices, payments, approved credits, purchase receipts and captured inventory costs. The receiver validates and deduplicates them into the same company ledger.
+The main app retains its own accounting and exports its ledger/supporting records. Vendor exports invoices, payments, approved credits, receipts and captured costs after its source sync finishes. Windows also retains an automatic local-file feed under the same Windows user. Both routes use the existing receiver's import IDs and validation. Cloud use still needs the reviewed Firebase rules and persistent accounting service; these have not been deployed here.
 
 Test a retail sale and a delivered wholesale invoice first. Draft wholesale orders are not revenue. Review the App connections status, control totals and any cost warnings. Repeating an unchanged snapshot must not duplicate postings.
 

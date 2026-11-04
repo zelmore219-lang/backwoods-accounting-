@@ -10,8 +10,8 @@ PLUGINS={'@capacitor/core':'7.6.10','@capacitor/android':'7.6.10','@capacitor/ap
 
 def prepare():
     for kind,name,app_id,version,code in [
-        ('main','Backwoods Brew Connected','com.backwoodsbrew.main.connected','8.2.1',80201),
-        ('vendor','Backwoods Vendor Connected','com.backwoodsbrew.vendor.connected','4.1.1',40101),
+        ('main','Backwoods Brew Connected','com.backwoodsbrew.main.connected','8.2.2',80202),
+        ('vendor','Backwoods Vendor Connected','com.backwoodsbrew.vendor.connected','4.1.2',40102),
     ]:
         folder=ROOT/'android-apps'/kind
         folder.mkdir(parents=True,exist_ok=True)
@@ -21,7 +21,7 @@ def prepare():
         if web.exists():shutil.rmtree(web)
         shutil.copytree(source,web)
         # This panel uses Electron's local filesystem bridge. Android accounting
-        # relay is through the source app's existing Firebase sync to its desktop.
+        # snapshots use the authenticated Firebase transport on both platforms.
         panel=web/'business-accounting-panel.js'
         if panel.exists():panel.unlink()
         html=web/'index.html'
@@ -29,7 +29,7 @@ def prepare():
         (folder/'package.json').write_text(json.dumps({'name':'backwoods-'+kind+'-android-connected','version':version,'private':True,
             'scripts':{'sync':'cap sync android'},'dependencies':PLUGINS,'devDependencies':{'@capacitor/cli':'7.6.10'}},indent=2)+'\n')
         (folder/'capacitor.config.json').write_text(json.dumps({'appId':app_id,'appName':name,'webDir':'web','server':{'androidScheme':'https','hostname':'localhost'},'android':{'allowMixedContent':False}},indent=2)+'\n')
-        (folder/'build-metadata.json').write_text(json.dumps({'versionName':version,'versionCode':code,'source':kind,'accountingRoute':'existing Firebase sync to the connected desktop source app, then local accounting feed'},indent=2)+'\n')
+        (folder/'build-metadata.json').write_text(json.dumps({'versionName':version,'versionCode':code,'source':kind,'accountingRoute':'authenticated Firebase accounting snapshots; automatic server ingestion after one-time deployment'},indent=2)+'\n')
     print('Prepared main and vendor Android web projects.')
 
 

@@ -1,0 +1,42 @@
+// Merge these matches INSIDE the existing /databases/{database}/documents block.
+// Do not replace the source apps' existing rules with this fragment.
+// Existing broad catch-all grants must not override these protections.
+match /businessAccounting/{ownerUid}/sources/{source} {
+  function owner() { return signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner()); }
+  function validSource() { return source in ['main', 'vendor']; }
+  allow read: if owner() && validSource();
+  allow create, update: if owner() && validSource()
+    && request.resource.data.keys().hasOnly(['schemaVersion','generation','sha256','chunkCount','bytes','exportedAt'])
+    && request.resource.data.schemaVersion == 1
+    && request.resource.data.generation is string
+    && request.resource.data.generation.matches('[a-fA-F0-9-]{36}')
+    && request.resource.data.sha256 is string
+    && request.resource.data.sha256.matches('[a-f0-9]{64}')
+    && request.resource.data.chunkCount is int
+    && request.resource.data.chunkCount >= 1 && request.resource.data.chunkCount <= 175
+    && request.resource.data.bytes is int
+    && request.resource.data.bytes > (request.resource.data.chunkCount-1)*240000
+    && request.resource.data.bytes <= request.resource.data.chunkCount*240000
+    && request.resource.data.bytes <= 41943040
+    && request.resource.data.exportedAt is string && request.resource.data.exportedAt.size() <= 40;
+  allow delete: if false;
+  match /generations/{generation}/chunks/{chunk} {
+    allow read: if owner() && validSource();
+    allow create: if owner() && validSource()
+      && generation.matches('[a-fA-F0-9-]{36}')
+      && chunk.matches('(00[0-9]{2}|01[0-6][0-9]|017[0-4])')
+      && request.resource.data.keys().hasOnly(['data'])
+      && request.resource.data.data is string
+      && request.resource.data.data.size() <= 320000;
+    allow update, delete: if false;
+  }
+}
+match /businessAccounting/{ownerUid}/settings/service {
+  allow read: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner());
+  allow create, update: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner())
+    && request.resource.data.keys().hasOnly(['origin','updatedAt'])
+    && request.resource.data.origin is string
+    && request.resource.data.origin.matches('https://[a-zA-Z0-9.-]+(:[0-9]+)?')
+    && request.resource.data.updatedAt is string;
+  allow delete: if false;
+}

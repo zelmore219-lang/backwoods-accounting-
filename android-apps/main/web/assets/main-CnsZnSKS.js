@@ -32882,8 +32882,9 @@ function Ry() {
     [y, v] = j.useState(""),
     [w, I] = j.useState(!1);
 
+  window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.projectId,auth:Ba});
   window.__bwAccountingSnapshot = () => {
-    if (!a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
+    if (t || !a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
     const keys=['accounts','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores'];
     const data={};
     for(const key of keys) data[key]=(Array.isArray(r[key])?r[key]:[]).filter(row=>!['vendor-ordering','vendor'].includes(String(row.sourceSystem||row.sourceApp||'').toLowerCase()));

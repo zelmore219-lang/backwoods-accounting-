@@ -1,0 +1,30 @@
+# Activate automatic company accounting
+
+The new builds contain authenticated Firebase snapshot upload, a polling accounting importer and Android company discovery. These are implemented and fixture-tested; they are **not yet deployed against your live Firebase company**. The apps do not ask end users for a transfer URL.
+
+## One-time administrator setup
+
+1. Export backups from both source apps and Business Accounting. Keep the existing apps and data until totals have been checked. The new connected editions use separate profiles; the Windows profile helper preserves the original.
+2. In Firebase project `backwoodsbrew-e3584-d52a3`, open Firestore Database → Rules. The complete [firestore.rules](firestore.rules) merges the current rules supplied in chat with the accounting additions. Existing functions/permissions are retained in a whitespace-normalized baseline; [firestore.original.rules](firestore.original.rules) records that baseline. Save/export the current Console rules, review the addition, and use the merged file for the one-time rules update. It adds active-owner, same-UID access only under `businessAccounting`; the existing deny-all fallback stays in place. Test signed-out, other-UID, inactive/staff and valid-owner access before production use. No live rules have been published by this build.
+3. Run the updated Business Accounting service against the **existing company database**, then sign in as its local owner. In Settings → Automatic Firebase accounting, link the same Firebase owner email/password used for both source apps, confirming the Business Accounting owner's password. This explicitly binds one Firebase UID to one ledger. Passwords are used only for sign-in; the Windows refresh credential is encrypted with that Windows user's DPAPI and excluded from database backups. A different UID cannot silently replace the company binding.
+4. Run the updated source apps and sign in as that Firebase owner. Financial copies upload automatically—there is no transfer button, export/import step or URL field. The main app keeps its own accounting. Vendor upload waits for its original Firebase sync to finish. Source edits remain in the source apps; incomplete/corrupt cloud generations are rejected by accounting. The local Windows feed also runs automatically as a fallback and uses the same import IDs.
+5. To use Business Accounting on Android, the company accounting service must run behind trusted HTTPS with persistent storage and backups. Configure its origin **once on that service**, using `--public-origin https://YOUR-COMPANY-DOMAIN` as described in [shared hosting](../android-apps/SHARED-ACCOUNTING.md). The service publishes its address to the bound owner's private `businessAccounting/{uid}/settings/service` document. The Android APK discovers it after Firebase sign-in and exchanges Google's verified identity for the explicitly bound accounting login. Users do not type the service address.
+6. Check a fictitious retail sale and delivered wholesale invoice, then a payment and correction. Reopen the source apps and confirm reimports do not duplicate entries. Compare retail/wholesale control totals and review historical-cost warnings before relying on live books.
+
+For a hosted service outside Windows, supply `BACKWOODS_FIREBASE_UID` and `BACKWOODS_FIREBASE_REFRESH_TOKEN` through its protected secret bindings, then link that same UID to the ledger. The source includes no admin key. Do not put refresh tokens, business databases or payroll credentials in GitHub or chat. The host must preserve the authoritative database; an ephemeral container filesystem is not sufficient.
+
+The Firebase-linked Android sign-in currently maps to the explicitly linked **owner**. Other staff roles retain their existing source permissions; this build does not automatically grant drivers or retail staff access to company payroll or consolidated accounts.
+
+## What runs automatically
+
+While a source app is open and its owner is signed in, changed financial snapshots upload to that owner's private Firebase namespace. The accounting service polls both sources every 15 seconds while running, verifies every chunk and its SHA-256 digest, then uses the existing validated/revision-aware importer. Unchanged snapshots do not create duplicate postings. The main app's ledger and wholesale source records remain separate in their original apps and merge only in Business Accounting.
+
+Driver/staff changes must first reach the owner app through the source's existing Firebase sync. This sender is not a server-side trigger watching all source collections. Android can suspend background apps; a closed app is not promised to upload instantly. The accounting service must stay running. Missing or stale records are rejected for review, never silently deleted from posted accounting.
+
+Immutable generations are retained in Firebase. A reviewed retention/cleanup policy is needed for long-term production operation. Concurrent pointer changes are rejected and retried rather than combining chunk generations. Existing import checks protect posted records, but conflicting edits across source devices still need source-app reconciliation.
+
+## If the test APK cannot open company books
+
+“Company service is not set up” means the one-time service deployment/link is missing. “Cloud access needs setup” means Firestore rules/authentication need review. These builds show that state honestly; they do not fabricate a connection or upload records to an unknown server. Installing the APKs alone does not deploy Firebase rules or create accounting hosting.
+
+Build checks: Python accounting/auth/import tests, Node snapshot transport tests, Android origin unit tests and APK signature inspection. Firebase transport tests use controlled responses, **not live company credentials**. The merged rules preserve the supplied baseline but have not yet been compiled/tested in the emulator/live project. Physical Android, Windows upgrade and live Firebase reconciliation remain required.

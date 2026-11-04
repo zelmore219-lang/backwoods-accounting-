@@ -92,7 +92,7 @@ test('main export uses native ledger settings without exporting credentials or m
   const script=fs.readFileSync(path.join(ROOT,'scripts/build_connected_apps.py'),'utf8');
   const hook=/MAIN_HOOK=r'''([\s\S]*?)'''/.exec(script)[1];
   const native={accounts:[],orders:[],invoices:[{id:'vendor-copy',sourceSystem:'vendor-ordering'}],settings:{nativeSetting:42,privateSetting:'not exported'}};
-  const sandbox={window:{},a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
+  const sandbox={window:{},t:false,a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
   const before=JSON.stringify(native);vm.runInNewContext(hook,sandbox);const packet=sandbox.window.__bwAccountingSnapshot();
   assert(!('settings' in packet.data));assert.equal(JSON.stringify(native),before);
   sandbox.a.active=false;assert.equal(sandbox.window.__bwAccountingSnapshot(),null);

@@ -1,0 +1,268 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Existing rules supplied by the company owner; whitespace normalized.
+    function signedIn() { return request.auth != null; }
+    function adminEmail() { return signedIn() && request.auth.token.email == 'admin@backwoodsbrew-e3584-d52a3.firebaseapp.com'; }
+    function activeProfilePath() { return /databases/$(database)/documents/usersByUid/$(request.auth.uid); }
+    function userProfilePath(username) { return /databases/$(database)/documents/users/$(username); }
+    function hasActiveProfile() { return signedIn() && exists(activeProfilePath()) && get(activeProfilePath()).data.active == true; }
+    function role() { return get(activeProfilePath()).data.role; }
+    function isManager() { return adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator','manager']); }
+    function keepsSameAccess() { return request.resource.data.authUid == request.auth.uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active; }
+    function adminUidProfileWrite(uid) { return adminEmail() && request.auth.uid == uid && request.resource.data.authUid == request.auth.uid && request.resource.data.username == 'admin' && request.resource.data.role == 'owner' && request.resource.data.active == true; }
+    function adminUsernameProfileWrite(username) { return adminEmail() && username == 'admin' && request.resource.data.authUid == request.auth.uid && request.resource.data.username == 'admin' && request.resource.data.role == 'owner' && request.resource.data.active == true; }
+    function usernameProfileBelongsToSignedInUser(username) { return signedIn() && exists(userProfilePath(username)) && get(userProfilePath(username)).data.authUid == request.auth.uid && get(userProfilePath(username)).data.active == true; }
+    function selfUidProfileCreate(uid) { return signedIn() && request.auth.uid == uid && request.resource.data.authUid == request.auth.uid && request.resource.data.active == true && request.resource.data.role in ['owner','admin','administrator','manager','lead','accountant','kitchen','employee'] && usernameProfileBelongsToSignedInUser(request.resource.data.username) && request.resource.data.role == get(userProfilePath(request.resource.data.username)).data.role; }
+
+    match /usersByUid/{uid} {
+      allow read: if isManager() || (signedIn() && request.auth.uid == uid);
+      allow create: if isManager() || adminUidProfileWrite(uid) || selfUidProfileCreate(uid);
+      allow update: if isManager() || adminUidProfileWrite(uid) || (signedIn() && request.auth.uid == uid && keepsSameAccess());
+      allow delete: if false;
+    }
+    match /users/{username} {
+      allow get: if isManager() || (signedIn() && resource.data.authUid == request.auth.uid && resource.data.active == true) || (adminEmail() && username == 'admin');
+      allow list: if isManager();
+      allow create: if isManager() || adminUsernameProfileWrite(username);
+      allow update: if isManager() || adminUsernameProfileWrite(username) || (signedIn() && resource.data.authUid == request.auth.uid && keepsSameAccess());
+      allow delete: if false;
+    }
+    match /appData/{document} {
+      allow read, create, update: if document == 'main' && hasActiveProfile();
+      allow delete: if document == 'main' && isManager();
+    }
+    match /appSettings/{document} {
+      allow read: if document == 'global' && hasActiveProfile();
+      allow create, update: if document == 'global' && isManager();
+      allow delete: if false;
+    }
+    match /schedules/{document} {
+      allow read: if hasActiveProfile();
+      allow create, update, delete: if isManager();
+    }
+
+    function vendorProfilePath() { return /databases/$(database)/documents/vendorUsers/$(request.auth.uid); }
+    function hasVendorProfile() { return signedIn() && exists(vendorProfilePath()); }
+    function hasActiveVendorProfile() { return hasVendorProfile() && get(vendorProfilePath()).data.active == true; }
+    function vendorRole() { return get(vendorProfilePath()).data.role; }
+    function isVendorOwner() { return adminEmail() || (hasActiveVendorProfile() && vendorRole() == 'owner'); }
+    function isVendorManager() { return adminEmail() || (hasActiveVendorProfile() && vendorRole() in ['owner','admin','administrator','manager']); }
+    function isVendorAccounting() { return isVendorManager() || (hasActiveVendorProfile() && vendorRole() in ['accountant','accounting']); }
+    function isVendorDriver() { return hasActiveVendorProfile() && vendorRole() in ['owner','admin','administrator','manager','driver']; }
+    function isVendorWarehouse() { return hasActiveVendorProfile() && vendorRole() in ['owner','admin','administrator','manager','warehouse','packer','inventory']; }
+    function adminVendorBootstrap(uid) { return adminEmail() && request.auth.uid == uid && request.resource.data.authUid == request.auth.uid && request.resource.data.email == 'admin@backwoodsbrew-e3584-d52a3.firebaseapp.com' && request.resource.data.username == 'admin' && request.resource.data.role == 'owner' && request.resource.data.active == true; }
+    function vendorUserKeepsAccess() { return request.resource.data.authUid == resource.data.authUid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active; }
+
+    match /vendorUsers/{uid} {
+      allow get: if isVendorManager() || (signedIn() && request.auth.uid == uid);
+      allow list: if isVendorManager();
+      allow create: if isVendorManager() || adminVendorBootstrap(uid);
+      allow update: if isVendorManager() || (signedIn() && request.auth.uid == uid && vendorUserKeepsAccess());
+      allow delete: if isVendorOwner();
+    }
+    match /vendorCustomers/{customerId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if hasActiveVendorProfile();
+      allow delete: if isVendorManager();
+    }
+    match /vendorProducts/{productId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorWarehouse();
+      allow delete: if isVendorManager();
+    }
+    match /vendorOrders/{orderId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if hasActiveVendorProfile();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if hasActiveVendorProfile();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorPacking/{packingId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorWarehouse();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorManager() || isVendorWarehouse();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorRoutes/{routeId} {
+      allow read: if hasActiveVendorProfile();
+      allow create: if isVendorManager();
+      allow update: if isVendorManager() || isVendorDriver();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorManager() || isVendorDriver();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorDeliveries/{deliveryId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorDriver();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorManager() || isVendorDriver();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorProofOfDelivery/{proofId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorDriver();
+      allow delete: if isVendorManager();
+    }
+    match /vendorReturns/{returnId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if hasActiveVendorProfile();
+      allow delete: if isVendorManager();
+    }
+    match /vendorInventory/{inventoryId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorWarehouse();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorManager() || isVendorWarehouse();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorInventoryMovements/{movementId} {
+      allow read: if isVendorManager() || isVendorWarehouse() || isVendorDriver() || isVendorAccounting() || (hasActiveVendorProfile() && vendorRole() == 'sales');
+      allow create: if isVendorManager() || isVendorWarehouse() || isVendorDriver();
+      allow update, delete: if false;
+    }
+    match /vendorSuppliers/{supplierId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update, delete: if isVendorManager();
+    }
+    match /vendorPurchasing/{purchaseId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager() || isVendorWarehouse();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorManager() || isVendorWarehouse();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorPurchaseOrders/{purchaseOrderId} {
+      allow read, create, update: if isVendorManager() || isVendorWarehouse() || isVendorAccounting();
+      allow delete: if isVendorManager();
+    }
+    match /vendorPurchaseReceipts/{receiptId} {
+      allow read: if isVendorManager() || isVendorWarehouse() || isVendorAccounting();
+      allow create: if isVendorManager() || isVendorWarehouse();
+      allow update, delete: if false;
+    }
+    match /vendorSupplierInvoices/{supplierInvoiceId} {
+      allow read, create, update: if isVendorAccounting();
+      allow delete: if isVendorManager();
+    }
+    match /vendorInvoices/{invoiceId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorAccounting();
+      allow delete: if isVendorManager();
+      match /{subdocument=**} {
+        allow read: if hasActiveVendorProfile();
+        allow create, update: if isVendorAccounting();
+        allow delete: if isVendorManager();
+      }
+    }
+    match /vendorPayments/{paymentId} {
+      allow read, create, update: if isVendorAccounting();
+      allow delete: if isVendorOwner();
+    }
+    match /vendorCredits/{creditId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorAccounting();
+      allow delete: if isVendorManager();
+    }
+    match /vendorRecurringOrders/{recurringOrderId} {
+      allow read: if isVendorAccounting() || (hasActiveVendorProfile() && vendorRole() == 'sales');
+      allow create, update: if isVendorManager() || (hasActiveVendorProfile() && vendorRole() == 'sales');
+      allow delete: if isVendorManager();
+    }
+    match /vendorDriverSettlements/{settlementId} {
+      allow read, create: if isVendorAccounting();
+      allow update, delete: if false;
+    }
+    match /vendorNotifications/{notificationId} {
+      allow read: if hasActiveVendorProfile();
+      allow create: if isVendorManager() || (hasActiveVendorProfile() && vendorRole() in ['sales','driver'] && request.resource.data.get('type','') in ['route_visit','route_closeout']);
+      allow update: if isVendorManager() || (hasActiveVendorProfile() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','readAt'])) || (hasActiveVendorProfile() && vendorRole() in ['sales','driver'] && resource.data.get('type','') in ['route_visit','route_closeout'] && request.resource.data.get('type','') == resource.data.get('type',''));
+      allow delete: if isVendorManager();
+    }
+    match /vendorSettings/{settingId} {
+      allow read: if hasActiveVendorProfile();
+      allow create, update: if isVendorManager();
+      allow delete: if isVendorOwner();
+    }
+    match /vendorReports/{reportId} {
+      allow read: if isVendorAccounting() || isVendorManager();
+      allow create, update: if isVendorManager();
+      allow delete: if isVendorOwner();
+    }
+    match /vendorAuditLogs/{logId} {
+      allow read: if isVendorManager();
+      allow create: if hasActiveVendorProfile();
+      allow update, delete: if false;
+    }
+    match /vendorBackups/{backupId} { allow read, create, update, delete: if isVendorOwner(); }
+    match /vendorCloudBackups/{backupId} { allow read, create, update, delete: if isVendorOwner(); }
+
+
+    // BEGIN AUTOMATIC ACCOUNTING ADDITION
+    // Merge these matches INSIDE the existing /databases/{database}/documents block.
+    // Do not replace the source apps' existing rules with this fragment.
+    // Existing broad catch-all grants must not override these protections.
+    match /businessAccounting/{ownerUid}/sources/{source} {
+      function owner() { return signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner()); }
+      function validSource() { return source in ['main', 'vendor']; }
+      allow read: if owner() && validSource();
+      allow create, update: if owner() && validSource()
+        && request.resource.data.keys().hasOnly(['schemaVersion','generation','sha256','chunkCount','bytes','exportedAt'])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.generation is string
+        && request.resource.data.generation.matches('[a-fA-F0-9-]{36}')
+        && request.resource.data.sha256 is string
+        && request.resource.data.sha256.matches('[a-f0-9]{64}')
+        && request.resource.data.chunkCount is int
+        && request.resource.data.chunkCount >= 1 && request.resource.data.chunkCount <= 175
+        && request.resource.data.bytes is int
+        && request.resource.data.bytes > (request.resource.data.chunkCount-1)*240000
+        && request.resource.data.bytes <= request.resource.data.chunkCount*240000
+        && request.resource.data.bytes <= 41943040
+        && request.resource.data.exportedAt is string && request.resource.data.exportedAt.size() <= 40;
+      allow delete: if false;
+      match /generations/{generation}/chunks/{chunk} {
+        allow read: if owner() && validSource();
+        allow create: if owner() && validSource()
+          && generation.matches('[a-fA-F0-9-]{36}')
+          && chunk.matches('(00[0-9]{2}|01[0-6][0-9]|017[0-4])')
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() <= 320000;
+        allow update, delete: if false;
+      }
+    }
+    match /businessAccounting/{ownerUid}/settings/service {
+      allow read: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner());
+      allow create, update: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner())
+        && request.resource.data.keys().hasOnly(['origin','updatedAt'])
+        && request.resource.data.origin is string
+        && request.resource.data.origin.matches('https://[a-zA-Z0-9.-]+(:[0-9]+)?')
+        && request.resource.data.updatedAt is string;
+      allow delete: if false;
+    }
+    // END AUTOMATIC ACCOUNTING ADDITION
+
+    // DENY ALL OTHER FIRESTORE ACCESS
+    match /{document=**} { allow read, write: if false; }
+  }
+}

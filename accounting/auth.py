@@ -56,7 +56,13 @@ def login(ledger,value):
         with ledger.db:
             ledger.db.execute('INSERT OR REPLACE INTO login_attempts VALUES(?,?,?,?)',(user,failures,current+900 if failures>=5 else 0,current))
         raise AccountingError('Username or password is incorrect')
-    token=secrets.token_urlsafe(32)
+    with ledger.db:ledger.db.execute('DELETE FROM login_attempts WHERE username=?',(user,))
+    return issue_session(ledger,r)
+
+
+def issue_session(ledger,r):
+    """Only call after a local password or bound Firebase identity is verified."""
+    current=int(time.time());user=r['username'];token=secrets.token_urlsafe(32)
     with ledger.db:
         ledger.db.execute('DELETE FROM login_attempts WHERE username=?',(user,))
         ledger.db.execute('DELETE FROM sessions WHERE expires_at<?',(current,))

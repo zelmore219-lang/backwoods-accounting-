@@ -1,19 +1,14 @@
-# Backwoods Android downloads
+# Revised Android downloads
 
-Installable, debug-signed **test APKs** for Android 6+. Download a file on your Android device, open it, and allow installation from your browser when Android asks. Test with non-production records first.
+These installable **debug-signed test APKs** replace the earlier manual-connection builds. Android 6+ is required.
 
-| App | Download | Required setup |
-| --- | --- | --- |
-| Main retail, 8.2.1 | [Backwoods Brew APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Brew-Connected-8.2.1-test.apk) | Existing main-app login and Firebase access |
-| Vendor wholesale, 4.1.1 | [Backwoods Vendor APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Vendor-Connected-4.1.1-test.apk) | Existing vendor-app login and Firebase access |
-| Business Accounting, 1.0.0 | [Business Accounting APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Business-Accounting-1.0.0-test.apk) | Shared HTTPS accounting service and accounting login; **service not deployed** |
+- [Main retail 8.2.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Brew-Connected-8.2.2-test.apk)
+- [Vendor wholesale 4.1.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Vendor-Connected-4.1.2-test.apk)
+- [Business Accounting 1.0.1 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Business-Accounting-1.0.1-test.apk)
+- [Windows installers and all downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/automatic-accounting-test-1)
 
-The source editions install alongside older Android apps. Original signing keys and application identities were not supplied; these cannot access another app's private device storage. Sync/export old records and keep backups and old apps until records and balances have been checked.
+Sign in normally to the source apps as the Firebase owner. Their accounting copies send automatically while the apps are open. Business Accounting uses Firebase sign-in and company discovery; **no transfer URL entry** is required.
 
-Current transfer: source APK → existing Firebase sync → connected Windows source app → local file feed → Business Accounting. This needs the Windows apps running and depends on existing Firebase rules and source sync. It has not been tested against live company data. **Direct Firebase accounting integration is unfinished.** The accounting APK needs a shared server; entering a Firebase console/project address will not set one up.
+**Not activated yet:** one-time Firestore rules, company ledger linking and shared HTTPS service deployment. See [setup](../firebase/SETUP.md). Installing the APKs alone does not deploy those pieces. Cloud tests used controlled Firebase responses; no live company or physical-device test has been completed.
 
-All three APKs passed signature verification and package/version inspection. [SHA256SUMS.txt](SHA256SUMS.txt) and [manifest.json](manifest.json) record hashes, sizes, application IDs and signing-certificate fingerprints. Login, camera, location, physical printing and live syncing still require device testing.
-
-Production distribution requires your own securely retained release signing key. Rebuilding with a different debug key cannot update these APKs in place; preserve/export records before changing signing identities. No private signing key is committed.
-
-See [Android projects](../android-apps/README.md), [shared accounting setup](../android-apps/SHARED-ACCOUNTING.md), and [Windows source updates](../source-app-updates/README.md).
+[SHA256SUMS.txt](SHA256SUMS.txt) and [manifest.json](manifest.json) record each built artifact's hash, size, version and signing certificate. Keep old apps and backups until records match. Source editions have separate Android identities from unknown originals. Different signing keys cannot update these test APKs in place; never uninstall without verifying backups/sync. No private signing key is committed.

@@ -32,11 +32,10 @@ app.on('browser-window-created',(_event,win)=>{
     busy=true;
     try {
       const raw=await win.webContents.executeJavaScript(`(() => {
-        if(localStorage.getItem('bw-business-accounting-enabled')!=='yes') return null;
         return typeof window.__bwAccountingSnapshot==='function' ? window.__bwAccountingSnapshot() : null;
       })()`);
       const packet=accountingOnly(raw);
-      if(!packet){state.set(win.webContents.id,{message:'Not sending. Sign in as the owner and enable the connection.'});return;}
+      if(!packet){state.set(win.webContents.id,{message:'Not sending. Sign in as the owner.'});return;}
       const hash=crypto.createHash('sha256').update(JSON.stringify(packet)).digest('hex');
       // Refresh a heartbeat even if records do not change, so an old receipt is visible.
       if(hash===lastHash&&Date.now()-lastSent<60000)return;

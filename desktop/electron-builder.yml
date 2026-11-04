@@ -17,6 +17,7 @@ extraResources:
     to: backend/accounting
     filter:
       - '**/*.py'
+      - '**/*.json'
   - from: web
     to: backend/web
   - from: run.py

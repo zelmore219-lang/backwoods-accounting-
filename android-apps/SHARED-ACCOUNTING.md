@@ -2,9 +2,9 @@
 
 ## Ready to configure
 
-The Business Accounting APK is a native Android client for the existing accounting web app. It accepts a company HTTPS origin, opens that service's login and ledger, offers native printing / Save as PDF, supports file picking, and asks before saving downloaded records. TLS validation remains enabled; HTTP and other-origin navigation inside the company WebView are blocked. Changing the connection clears this phone's web login/cache, preserving server records.
+The Business Accounting APK is a native Android client for the existing accounting web app. It signs in to Firebase, discovers the company HTTPS service, opens that service's ledger, offers native printing / Save as PDF, supports file picking, and asks before saving downloaded records. TLS validation remains enabled; HTTP and other-origin navigation inside the company WebView are blocked. Changing the connection clears this phone's web login/cache, preserving server records.
 
-**No accounting service has been deployed and no company address is prefilled.** A Firebase project ID or console address is not an accounting server address. Existing Windows data is not automatically uploaded. This APK does not create a second phone ledger.
+**No accounting service has been deployed.** Users no longer enter its address: the service publishes its origin into the bound owner's private Firebase discovery document, which the APK reads after sign-in. Existing Windows data is not automatically uploaded. This APK does not create a second phone ledger.
 
 ## Shared service setup
 
@@ -29,7 +29,7 @@ books.YOUR-DOMAIN.com {
 }
 ```
 
-This requires domain ownership, working DNS and the normal certificate-validation ports. Keep backend port 8765 private. Verify the real HTTPS certificate and login on another device, then enter that origin in the APK. Use the native **Print** toolbar button for printing/PDF; physical printers require an Android print service. These deployment steps have not been executed against a real domain here.
+This requires domain ownership, working DNS and the normal certificate-validation ports. Keep backend port 8765 private. Verify the real HTTPS certificate and login on another device, then verify the service has published its private Firebase discovery document. Sign in to the APK with the linked Firebase owner; it discovers the origin automatically. Use the native **Print** toolbar button for printing/PDF; physical printers require an Android print service. These deployment steps have not been executed against a real domain here.
 
 To use the same shared ledger on Windows, open that company origin in a browser. The updated desktop source also supports `BACKWOODS_ACCOUNTING_SERVER_URL`: set it to the HTTPS origin before launching a **rebuilt** desktop app. That mode opens the shared service without starting another local ledger. Older installed builds do not gain this feature automatically.
 
@@ -40,10 +40,8 @@ $env:BACKWOODS_ACCOUNTING_SERVER_URL = 'https://books.YOUR-DOMAIN.com'
 
 Moving hosts requires deliberate database/feed migration and verified backups. Windows DPAPI payroll tokens must be reconnected after moving to another Windows user/computer. Do not commit business records or service-account credentials to GitHub.
 
-## Firebase status
+## Firebase integration
 
-Retail and vendor APKs retain the source apps' existing Firebase behavior. Today, a connected Windows source app must first receive those cloud changes and then send its financial snapshot into the accounting file feed. Records excluded from the source's existing cloud sync do not transfer automatically.
+Automatic source upload, immutable chunk validation, the background importer and Firebase-bound accounting login are implemented. See [the one-time setup](../firebase/SETUP.md) for the exact Firebase paths and deployment steps. The sender runs while a source owner app is open; it is not a trigger watching all staff writes server-side. Phone OS background suspension can delay sending.
 
-**Direct Firebase import into Business Accounting is not implemented or deployed.** It needs confirmed source collections and company ownership, Firebase Auth/rules verification, an authenticated ingestion worker, durable accounting storage, deployment access and live reconciliation tests. The public Firebase configuration in the uploaded apps does not grant administrative access. No rules were loosened and no unauthenticated ledger API was added.
-
-APK installation and compilation do not establish live phone-to-company-ledger operation. The shared service and direct Firebase integration remain separate setup/work items.
+No live rules, hosting or source control-total reconciliation have been deployed/tested. Fixture tests and signed APKs do not establish production operation. The current project's public Firebase configuration grants no administrative access.

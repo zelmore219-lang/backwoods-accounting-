@@ -4,9 +4,9 @@ This records evidence from the current cloud build. It is not a claim of Windows
 
 ## Verified
 
-- The current update passes **65 Python accounting tests**, **12 Node source-update/desktop-origin tests**, and **3 Android company-origin unit tests**. The added HTTP test simulates Host forwarding from a TLS terminator; it does not test a live TLS deployment.
-- Main 8.2.1 and Vendor 4.1.1 complete connected Windows editions were packaged and NSIS installers generated. Profile-copy fixtures verify that original bytes remain unchanged and running/ambiguous/unsafe profiles are rejected. These are fixture checks, not real Windows upgrades.
-- All three Android debug APKs compiled and passed `apksigner verify`; package identities, versions and SHA-256 hashes are recorded in `android-apks/manifest.json`. They have not been run on a physical device or emulator. Business Accounting is an HTTPS client; no shared accounting server has been deployed. Direct Firebase-to-accounting integration remains unfinished.
+- The current update passes **73 Python accounting tests**, **12 Node source-update/desktop-origin tests**, **4 Node Firebase snapshot tests**, and **3 Android company-origin unit tests**. The added HTTP test simulates Host forwarding from a TLS terminator; it does not test a live TLS deployment.
+- Main 8.2.2 and Vendor 4.1.2 complete connected Windows editions were packaged and NSIS installers generated. Profile-copy fixtures verify that original bytes remain unchanged and running/ambiguous/unsafe profiles are rejected. These are fixture checks, not real Windows upgrades.
+- All three Android debug APKs compiled and passed `apksigner verify`; package identities, versions and SHA-256 hashes are recorded in `android-apks/manifest.json`. They have not been run on a physical device or emulator. Business Accounting signs into Firebase and discovers its HTTPS service without asking for a URL; no shared accounting server has been deployed. Firebase snapshot upload/import and company discovery are implemented with controlled-response tests; live deployment and rule enforcement remain unverified.
 
 The earlier application validation also established:
 

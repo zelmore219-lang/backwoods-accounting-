@@ -234,6 +234,44 @@ class HttpTests(unittest.TestCase):
         ledger=self.app.ledger()
         try:self.assertTrue(any(r['source']=='vendor' for r in ledger.rows()))
         finally:ledger.close()
+    def test_firebase_login_requires_verified_explicitly_bound_identity(self):
+        from unittest.mock import patch
+        with patch.object(self.app.firebase,'verify_identity',return_value='verified-company-uid'):
+            with self.assertRaises(urllib.error.HTTPError) as err:self.post('/api/auth/firebase-login',{'idToken':'test-token'})
+            self.assertEqual(err.exception.code,400)
+            ledger=self.app.ledger()
+            try:
+                owner=ledger.db.execute("SELECT id FROM users WHERE username='owner'").fetchone()[0]
+                with ledger.db:ledger.db.execute('INSERT INTO firebase_link VALUES(?,?,?)',('verified-company-uid',owner,'owner@example.test'))
+            finally:ledger.close()
+            result=self.post('/api/auth/firebase-login',{'idToken':'test-token'})
+            self.assertEqual(result['user']['role'],'owner')
+            self.assertEqual(json.loads(self.client.open(self.base+'/api/state').read())['user']['id'],owner)
+    def test_firebase_worker_imports_both_sources_into_one_ledger(self):
+        import time
+        ledger=self.app.ledger()
+        try:
+            owner=ledger.db.execute("SELECT id FROM users WHERE username='owner'").fetchone()[0]
+            with ledger.db:ledger.db.execute('INSERT INTO firebase_link VALUES(?,?,?)',('uid-owner',owner,'owner@example.test'))
+        finally:ledger.close()
+        retail={**main_backup(),'type':'business-accounting-feed','schemaVersion':1}
+        wholesale={**vendor(),'type':'business-accounting-feed','schemaVersion':1}
+        class Connected:
+            connection={'uid':'uid-owner'}
+            def bearer(self):return 'test-token'
+            def publish_service(self,origin):pass
+            def snapshot(self,source,previous):return None if previous else (source,retail if source=='main' else wholesale)
+        self.app.firebase=Connected()
+        thread=threading.Thread(target=self.app.watch_firebase,daemon=True);thread.start()
+        deadline=time.monotonic()+4
+        while time.monotonic()<deadline:
+            if len(self.app.firebase_status.get('sources',{}))==2:break
+            time.sleep(.03)
+        self.app.stop.set();thread.join(timeout=5)
+        self.assertEqual(set(self.app.firebase_status.get('sources',{})),{'main','vendor'})
+        ledger=self.app.ledger()
+        try:self.assertEqual({r['source'] for r in ledger.rows()},{'main','vendor'})
+        finally:ledger.close()
     def test_historical_cost_override_survives_future_feed(self):
         p=vendor();del p['data']['inventoryMovements'][0]['unitCost']
         self.post('/api/import',{'source':'vendor','payload':p})

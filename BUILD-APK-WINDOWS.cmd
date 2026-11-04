@@ -49,11 +49,11 @@ if errorlevel 1 goto failedPop
 popd
 
 if not exist "android-apks" mkdir android-apks
-copy /Y "android-apps\main\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Brew-Connected-8.2.1-test.apk"
+copy /Y "android-apps\main\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Brew-Connected-8.2.2-test.apk"
 if errorlevel 1 goto failed
-copy /Y "android-apps\vendor\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Vendor-Connected-4.1.1-test.apk"
+copy /Y "android-apps\vendor\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Vendor-Connected-4.1.2-test.apk"
 if errorlevel 1 goto failed
-copy /Y "android-apps\accounting\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Business-Accounting-1.0.0-test.apk"
+copy /Y "android-apps\accounting\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Business-Accounting-1.0.1-test.apk"
 if errorlevel 1 goto failed
 echo All three installable test APKs are in android-apks.
 echo Business Accounting requires your shared HTTPS company accounting server.
