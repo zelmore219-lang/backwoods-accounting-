@@ -1,0 +1,89 @@
+name: Build and publish Windows test installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/windows-test-installers.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  installers:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned tools and portable Python
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check uv==0.13.4
+          if ($LASTEXITCODE -ne 0) { throw 'uv installation failed' }
+          python -m uv python install --install-dir .build-resources/managed-python --no-bin --no-registry cpython-3.12.15-windows-x86_64-none
+          if ($LASTEXITCODE -ne 0) { throw 'Portable Python download failed' }
+          New-Item -ItemType Directory -Force .build-resources/python | Out-Null
+          Copy-Item '.build-resources/managed-python/cpython-3.12.15-windows-x86_64-none/*' .build-resources/python -Recurse -Force
+          npm ci --prefix desktop --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop dependency installation failed' }
+      - name: Verify accounting and source connectors
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -q
+          if ($LASTEXITCODE -ne 0) { throw 'Accounting tests failed' }
+          node tests/source_updates.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Source update tests failed' }
+          node tests/firebase_feed.test.cjs
+          if ($LASTEXITCODE -ne 0) { throw 'Firebase transfer tests failed' }
+      - name: Build all three Windows installers
+        shell: pwsh
+        run: |
+          & desktop/node_modules/.bin/electron-builder.cmd --projectDir source-app-updates/main --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { throw 'Main installer failed' }
+          & desktop/node_modules/.bin/electron-builder.cmd --projectDir source-app-updates/vendor --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { throw 'Vendor installer failed' }
+          & desktop/node_modules/.bin/electron-builder.cmd --config desktop/electron-builder.yml --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { throw 'Accounting installer failed' }
+      - name: Prepare checked download assets
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/test-release | Out-Null
+          Copy-Item android-apks/*.apk dist/test-release
+          Copy-Item dist/source-app-updates/main/*Setup*.exe dist/test-release
+          Copy-Item dist/source-app-updates/vendor/*Setup*.exe dist/test-release
+          Copy-Item dist/windows/*Setup*.exe dist/test-release
+          Copy-Item firebase/firestore.rules dist/test-release/Firebase-Firestore-Merged.rules
+          Copy-Item firebase/SETUP.md dist/test-release/Firebase-Accounting-Setup.md
+          $artifacts = @(Get-ChildItem dist/test-release -File | ForEach-Object {
+            @{ file=$_.Name; bytes=$_.Length; sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+          })
+          $artifacts | ForEach-Object { "$($_.sha256)  $($_.file)" } | Set-Content dist/test-release/SHA256SUMS.txt
+          @{ sourceCommit=$env:GITHUB_SHA; liveFirebaseTested=$false; physicalDeviceTested=$false; artifacts=$artifacts } | ConvertTo-Json -Depth 5 | Set-Content dist/test-release/BUILD-MANIFEST.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: all-three-app-test-downloads
+          path: dist/test-release/*
+          retention-days: 7
+      - name: Publish review downloads to GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = 'automatic-accounting-test-1'
+          $assets = @(Get-ChildItem dist/test-release -File | ForEach-Object { $_.FullName })
+          gh release view $tag --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --clobber --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
+            gh release edit $tag --draft=false --prerelease --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag @assets --target $env:GITHUB_SHA --prerelease --title 'Backwoods automatic accounting - test builds' --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }
