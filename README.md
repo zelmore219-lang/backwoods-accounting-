@@ -105,4 +105,4 @@ Build the Windows installer with the checked-in desktop configuration and a chec
 4. It installs pinned build tools into isolated folders, downloads the verified portable runtime, runs the tests, and invokes the native Windows installer builder.
 5. The output is `dist\windows\Backwoods-Business-Accounting-Setup-1.0.0.exe`.
 
-The build needs Internet access and several hundred MB of disk space. It does not need payroll credentials and does not publish anything. The installed app includes its runtime, so people installing the finished EXE do not need Python or Node.js. This Windows batch workflow has been reviewed but has not been executed on a Windows machine in this cloud session; failures remain visible in its command window.
+The build needs Internet access and about 2 GB of free disk space. It does not need payroll credentials and does not publish anything. The installed app includes its runtime, so people installing the finished EXE do not need Python or Node.js. This Windows batch workflow has been reviewed but has not been executed on a Windows machine in this cloud session; failures remain visible in its command window.

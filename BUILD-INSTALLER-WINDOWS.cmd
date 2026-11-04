@@ -7,12 +7,12 @@ if errorlevel 1 (
   echo Install Node.js 22 or later from https://nodejs.org/ and run this again.
   goto failed
 )
-node -e "if(Number(process.versions.node.split('.')[0])^<22)process.exit(1)"
+node -e "if(Number(process.versions.node.split('.')[0])<22)process.exit(1)"
 if errorlevel 1 (
   echo Node.js 22 or later is required.
   goto failed
 )
-py -3 -c "import sys; raise SystemExit(sys.version_info ^< (3,12))" >nul 2>nul
+py -3 -c "import sys; raise SystemExit(sys.version_info[:2] < (3,12))" >nul 2>nul
 if errorlevel 1 (
   echo Install Python 3.12 or later from https://www.python.org/ with the Python launcher enabled.
   goto failed
