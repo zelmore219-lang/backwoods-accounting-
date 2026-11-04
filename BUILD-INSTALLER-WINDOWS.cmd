@@ -2,6 +2,14 @@
 setlocal
 cd /d "%~dp0"
 
+rem Opening this CMD inside a ZIP extracts only the selected file into Temp.
+rem Require the full project before downloading or installing build tools.
+if not exist "desktop\package.json" goto incompleteFolder
+if not exist "desktop\package-lock.json" goto incompleteFolder
+if not exist "desktop\electron-builder.yml" goto incompleteFolder
+if not exist "accounting\server.py" goto incompleteFolder
+if not exist "web\index.html" goto incompleteFolder
+
 where node >nul 2>nul
 if errorlevel 1 (
   echo Install Node.js 22 or later from https://nodejs.org/ and run this again.
@@ -71,6 +79,15 @@ echo The installer includes its Python runtime. No payroll credentials are inclu
 explorer "%CD%\dist\windows"
 pause
 exit /b 0
+
+:incompleteFolder
+echo.
+echo The complete app folder was not found beside this build script.
+echo Do not run this file from inside the downloaded ZIP.
+echo Right-click the ZIP, choose Extract All, then open the extracted folder.
+echo It must contain the desktop, accounting, scripts, and web folders.
+echo Double-click BUILD-INSTALLER-WINDOWS.cmd from that extracted folder.
+goto failed
 
 :failed
 echo.
