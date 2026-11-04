@@ -1,0 +1,39 @@
+appId: com.backwoods.businessaccounting
+productName: Backwoods Business Accounting
+electronVersion: 45.2.2
+asar: true
+directories:
+  app: desktop
+  output: dist/windows
+files:
+  - main.cjs
+  - icon.ico
+  - package.json
+extraResources:
+  - from: .build-resources/python
+    to: python
+  - from: accounting
+    to: backend/accounting
+    filter:
+      - '**/*.py'
+  - from: web
+    to: backend/web
+  - from: run.py
+    to: backend/run.py
+  - from: README.md
+    to: backend/README.md
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: desktop/icon.ico
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+artifactName: Backwoods-Business-Accounting-Setup-${version}.${ext}

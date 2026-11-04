@@ -1,0 +1,14 @@
+{
+  "name": "backwoods-business-accounting",
+  "productName": "Backwoods Business Accounting",
+  "version": "1.0.0",
+  "private": true,
+  "description": "One company ledger, retail and wholesale accounting, costing, fixed assets, and connected payroll.",
+  "author": "Backwoods Brew",
+  "main": "main.cjs",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "45.2.2",
+    "electron-builder": "26.0.12"
+  }
+}
