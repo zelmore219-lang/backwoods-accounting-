@@ -5,3 +5,4 @@ dist/
 node_modules/
 test-results/
 .build-resources/
+.build-tools/

@@ -96,3 +96,13 @@ python scripts/build_connected_apps.py --main-dir PATH_TO_EXTRACTED_MAIN_8_2 --v
 ```
 
 Build the Windows installer with the checked-in desktop configuration and a checksum-verified `cpython-3.12.15-windows-x86_64-none` runtime placed at `.build-resources/python`. The installer build includes only application sources, web assets and that runtime; no company data or payroll credentials are included.
+
+### Build it yourself on Windows
+
+1. Download this repository as a ZIP and **extract the whole folder**.
+2. Install **Node.js 22 or later** and **Python 3.12 or later** (including the Python launcher).
+3. Double-click `BUILD-INSTALLER-WINDOWS.cmd` in the extracted folder.
+4. It installs pinned build tools into isolated folders, downloads the verified portable runtime, runs the tests, and invokes the native Windows installer builder.
+5. The output is `dist\windows\Backwoods-Business-Accounting-Setup-1.0.0.exe`.
+
+The build needs Internet access and several hundred MB of disk space. It does not need payroll credentials and does not publish anything. The installed app includes its runtime, so people installing the finished EXE do not need Python or Node.js. This Windows batch workflow has been reviewed but has not been executed on a Windows machine in this cloud session; failures remain visible in its command window.
