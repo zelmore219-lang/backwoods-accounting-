@@ -1,0 +1,6 @@
+{
+  "versionName": "8.2.1",
+  "versionCode": 80201,
+  "source": "main",
+  "accountingRoute": "existing Firebase sync to the connected desktop source app, then local accounting feed"
+}

@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {consolidate,parseRetailBackup,csvLedger} from '../www/central-ledger.mjs';
+const wholesale=[{source:'delivery:1',at:'2026-11-01',entries:[{account:'Accounts Receivable',debit:25},{account:'Wholesale Sales Revenue',credit:25}]}];
+const retail=[{id:'r1',date:'2026-11-01',storeId:'storeA',lines:[{account:'Cash',debit:10},{account:'Sales',credit:10}]}];
+test('consolidates distinct retail and wholesale division balances',()=>{const r=consolidate(wholesale,retail);assert.equal(r.errors.length,0);assert.equal(r.debitCents,3500);assert.equal(r.creditCents,3500);assert.equal(r.entries.length,2);assert.equal(r.balances.some(b=>b.division==='storeA'),true)});
+test('rejects duplicate wholesale source',()=>assert.match(consolidate([...wholesale,...wholesale]).errors.join(','),/Duplicate/));
+test('rejects unbalanced retail entry',()=>assert.match(consolidate(wholesale,[{...retail[0],lines:[{account:'Cash',debit:9}]}]).errors.join(','),/Unbalanced/));
+test('imports main app journal entries',()=>assert.equal(parseRetailBackup(JSON.stringify({data:{journalEntries:retail}})).length,1));
+test('does not pretend missing retail data exists',()=>assert.throws(()=>parseRetailBackup('{}'),/No journalEntries/));
+test('exports all ledger lines',()=>assert.equal(csvLedger(consolidate(wholesale,retail)).split('\r\n').length,5));

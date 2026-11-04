@@ -1,0 +1,12 @@
+{
+  "appId": "com.backwoodsbrew.vendor.connected",
+  "appName": "Backwoods Vendor Connected",
+  "webDir": "web",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "source": "main",
+  "originalLabel": "Backwoods Brew",
+  "connectedProfile": "Backwoods Brew Connected",
+  "originalProfiles": [
+    "Backwoods Brew",
+    "backwoods-brew-pc"
+  ],
+  "originalExecutables": [
+    "Backwoods Brew.exe"
+  ]
+}

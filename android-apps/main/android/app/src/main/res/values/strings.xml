@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Backwoods Brew Connected</string>
+    <string name="title_activity_main">Backwoods Brew Connected</string>
+    <string name="package_name">com.backwoodsbrew.main.connected</string>
+    <string name="custom_url_scheme">com.backwoodsbrew.main.connected</string>
+</resources>

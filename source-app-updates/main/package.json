@@ -1,0 +1,46 @@
+{
+  "name": "backwoods-brew-pc",
+  "author": "Backwoods Brew",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "version": "8.2.1",
+  "private": true,
+  "productName": "Backwoods Brew Connected",
+  "description": "Backwoods Brew with one-way Business Accounting connection",
+  "license": "UNLICENSED",
+  "build": {
+    "appId": "com.backwoodsbrew.main.connected",
+    "productName": "Backwoods Brew Connected",
+    "electronVersion": "45.2.2",
+    "asar": true,
+    "directories": {
+      "output": "../../dist/source-app-updates/main"
+    },
+    "files": [
+      "electron/**/*",
+      "www/**/*",
+      "assets/**/*",
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "Backwoods-Brew-Connected-Setup-${version}.${ext}"
+  },
+  "scripts": {
+    "verify": "node scripts/verify.cjs"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "source": "vendor",
+  "originalLabel": "Backwoods Vendor Ordering",
+  "connectedProfile": "Backwoods Vendor Ordering Connected",
+  "originalProfiles": [
+    "Backwoods Vendor Ordering",
+    "backwoods-vendor-ordering"
+  ],
+  "originalExecutables": [
+    "Backwoods Vendor Ordering.exe"
+  ]
+}

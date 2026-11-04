@@ -1,0 +1,22 @@
+apply plugin: 'com.android.application'
+android {
+    namespace 'com.backwoodsbrew.accounting'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.backwoodsbrew.accounting'
+        minSdk 23
+        targetSdk 35
+        versionCode 10000
+        versionName '1.0.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+}
+dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.9.25')
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core-splashscreen:1.0.1'
+    testImplementation 'junit:junit:4.13.2'
+}

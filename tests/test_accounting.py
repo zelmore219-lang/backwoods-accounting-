@@ -190,6 +190,36 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(err.exception.code,403)
         with self.assertRaises(urllib.error.HTTPError) as err:urllib.request.urlopen(self.base+'/api/state')
         self.assertEqual(err.exception.code,403)
+    def test_optional_https_proxy_origin_and_secure_cookies(self):
+        # Simulate a local TLS terminator's Host forwarding, not real TLS.
+        self.app.public_host='books.example.test'
+        self.app.public_origin='https://books.example.test'
+        headers={'Host':'books.example.test','Origin':'https://books.example.test'}
+        request=urllib.request.Request(self.base+'/',headers=headers)
+        response=self.client.open(request)
+        self.assertIn('; Secure',response.headers.get('Set-Cookie'))
+        response.read()
+        # Existing local login token is forwarded manually, as a TLS proxy would.
+        cookie='; '.join(c.name+'='+c.value for handler in self.client.handlers
+                        if isinstance(handler,urllib.request.HTTPCookieProcessor) for c in handler.cookiejar)
+        request=urllib.request.Request(self.base+'/api/state',headers={**headers,'Cookie':cookie})
+        self.assertEqual(urllib.request.urlopen(request).status,200)
+        for host,origin in [('untrusted.example.test','https://untrusted.example.test'),
+                            ('books.example.test','https://evil.example.test'),
+                            ('books.example.test',self.base)]:
+            with self.assertRaises(urllib.error.HTTPError) as err:
+                self.post('/api/settings',{'company':'Intruder'},{'Host':host,'Origin':origin})
+            self.assertEqual(err.exception.code,403)
+        login=urllib.request.Request(self.base+'/api/auth/login',json.dumps({'username':'owner','password':'test-owner-passphrase-2026'}).encode(),
+                                     {**headers,'Cookie':cookie,'Content-Type':'application/json','X-Accounting-Request':'1'})
+        response=urllib.request.urlopen(login)
+        self.assertIn('; Secure',response.headers.get('Set-Cookie'));response.read()
+
+    def test_public_origin_requires_https_origin_only(self):
+        for origin in ['http://books.example.test','https://owner:secret@books.example.test',
+                       'https://books.example.test/path','https://books.example.test?secret=value',
+                       'https://books.example.test#fragment']:
+            with self.assertRaises(AccountingError):Application(self.temp.name,public_origin=origin)
     def test_feed_worker_imports_without_browser(self):
         p=vendor();(self.app.feed_dir/'vendor.json').write_text(json.dumps(p))
         thread=threading.Thread(target=self.app.watch_feeds,daemon=True);thread.start()

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Backwoods Vendor Connected</string>
+    <string name="title_activity_main">Backwoods Vendor Connected</string>
+    <string name="package_name">com.backwoodsbrew.vendor.connected</string>
+    <string name="custom_url_scheme">com.backwoodsbrew.vendor.connected</string>
+</resources>

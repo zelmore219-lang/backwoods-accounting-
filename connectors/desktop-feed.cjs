@@ -25,6 +25,7 @@ ipcMain.handle('business-accounting:status', async event => {
   return {source,feedDir,...state.get(event.sender.id),received};
 });
 app.on('browser-window-created',(_event,win)=>{
+  const windowContentsId=win.webContents.id;
   let busy=false,lastHash='',lastSent=0;
   const send=async()=>{
     if(busy||win.isDestroyed()||!localWindow(win.webContents))return;
@@ -51,5 +52,5 @@ app.on('browser-window-created',(_event,win)=>{
   };
   const timer=setInterval(send,5000);
   win.webContents.on('did-finish-load',send);
-  win.on('closed',()=>{clearInterval(timer);state.delete(win.webContents.id);});
+  win.on('closed',()=>{clearInterval(timer);state.delete(windowContentsId);});
 });

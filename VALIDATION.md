@@ -4,6 +4,12 @@ This records evidence from the current cloud build. It is not a claim of Windows
 
 ## Verified
 
+- The current update passes **65 Python accounting tests**, **12 Node source-update/desktop-origin tests**, and **3 Android company-origin unit tests**. The added HTTP test simulates Host forwarding from a TLS terminator; it does not test a live TLS deployment.
+- Main 8.2.1 and Vendor 4.1.1 complete connected Windows editions were packaged and NSIS installers generated. Profile-copy fixtures verify that original bytes remain unchanged and running/ambiguous/unsafe profiles are rejected. These are fixture checks, not real Windows upgrades.
+- All three Android debug APKs compiled and passed `apksigner verify`; package identities, versions and SHA-256 hashes are recorded in `android-apks/manifest.json`. They have not been run on a physical device or emulator. Business Accounting is an HTTPS client; no shared accounting server has been deployed. Direct Firebase-to-accounting integration remains unfinished.
+
+The earlier application validation also established:
+
 - **63 automated tests passed.** Coverage includes combined retail/wholesale accounting, balanced journals, integer-cent rounding, idempotent imports, source revisions and reversals, duplicate payment copies, stale snapshots, closed periods, reconciled postings, retained attachments, supplier payments, credential redaction, owner setup, password hashing, lockouts, session invalidation, viewer restrictions, and rejected malformed imports.
 - Asset tests cover full-month straight-line depreciation, every-cent allocation, salvage limits, repeat-post prevention, future-month rejection, equipment disposal, and duplicate acquisition links.
 - Payroll tests cover wage/tax accruals, net-wage payments after closing an earlier period, duplicate/overlapping periods, provider calculation review, explicit approval, changed-calculation rejection, uncertain-outcome retention, duplicate-submission blocking, and demo/production accounting separation.

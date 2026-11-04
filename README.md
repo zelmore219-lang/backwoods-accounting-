@@ -26,11 +26,9 @@ The installer is unsigned unless built with your organization's signing setup. A
 
 ## Source-app connections
 
-The `Connected-Source-Apps` package contains separate, modified application archives and reviewable source copies. The originals supplied in this conversation are preserved. These archives are **not** installers for the two source apps.
+Complete connected editions of **both** supplied source apps are now in [source-app-updates](source-app-updates/README.md). Extract the whole repository and run `BUILD-APP-UPDATES-WINDOWS.cmd` to build Main 8.2.1 and Vendor 4.1.1 installers. Node.js 22+ is required; these two builds do not require Python. These replace the earlier manual ASAR replacement instructions.
 
-Back up both source apps first. Test the corresponding archive in a separate installation. Where the application's packaging permits archive replacement, close that test installation and replace only its `resources/app.asar` with the matching connected archive, renamed `app.asar`. Do not bypass Electron integrity enforcement or application signing. A source build and signed installer are required if the original installation rejects a replacement archive.
-
-A different installation folder alone does not isolate Electron user data. Use a separate Windows user for testing, or set `BACKWOODS_TEST_DATA_DIR` to a disposable profile directory before launching a connected copy. Test with fictitious records and avoid live cloud writes. Omit this override only when you intentionally want the connected app to use its normal existing profile.
+Back up and close the originals first. Connected editions install alongside them with separate profiles. On first launch, the helper copies a detected original profile without modifying it; ambiguous or unsafe profile choices stop with an explanation. Check your records before using the connected edition for future entries. The preserved original profile is not a second synchronized local copy. For isolated tests, use a separate Windows user for all three applications; `BACKWOODS_TEST_DATA_DIR` isolates only a source profile.
 
 Open the source app, sign in as owner, and enable the Business Accounting connection in the lower-left panel. The connected app writes a read-only snapshot into the same Windows user's accounting `feeds` folder. Business Accounting validates and imports it while running. These local connectors do not synchronize across computers and do not write to either source app's financial records or Firebase. A secure hosted backend is needed for cross-computer synchronization.
 
@@ -39,6 +37,14 @@ The vendor connected copy additionally captures historical-at-event unit costs f
 The main app's preferred connection exports its own general ledger, including its payroll and roasting rules. Plain backup imports support core retail records but reject unsupported components. **Choose the main-ledger connection before importing plain main-app backups.** The two formats use different source IDs, so changing formats in a populated company requires a reviewed migration and is blocked rather than double-posted.
 
 Vendor customer payments duplicated in both an invoice and the payment list are counted once. Approved credits already included on an invoice are not posted a second time. Inventory purchase receipts accrue inventory and accounts payable; their companion stock movements do not also accrue the purchase. Supplier invoice formats not implemented in the supplied build are rejected for review. Hard-deleted source transactions are never silently deleted from posted books.
+
+## All three Android APKs
+
+Installable **test** APKs for Main, Vendor and Business Accounting are in [android-apks](android-apks/README.md), with hashes and version metadata. They are debug signed and have not been tested on a physical Android device. Android 6 or later is required. Original APK signing keys and Android projects were not supplied, so the two source editions install alongside existing apps.
+
+The source APKs retain existing Firebase synchronization. Automatic accounting transfer currently requires each connected Windows source app and Business Accounting running under the same Windows user. **Direct Firebase-to-accounting integration is not implemented.** The Business Accounting APK is a client for a shared HTTPS accounting service; it has no preconfigured server. See [shared service setup](android-apps/SHARED-ACCOUNTING.md). APK installation alone does not activate mobile accounting.
+
+`BUILD-APK-WINDOWS.cmd` rebuilds all three APKs. Complete Android projects and prerequisites are in [android-apps](android-apps/README.md).
 
 ## Connected payroll setup
 

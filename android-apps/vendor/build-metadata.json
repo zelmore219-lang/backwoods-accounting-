@@ -1,0 +1,6 @@
+{
+  "versionName": "4.1.1",
+  "versionCode": 40101,
+  "source": "vendor",
+  "accountingRoute": "existing Firebase sync to the connected desktop source app, then local accounting feed"
+}

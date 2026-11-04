@@ -1,0 +1,57 @@
+{
+  "name": "backwoods-brew-pc",
+  "version": "8.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@capacitor/core": "7.6.10",
+    "@capacitor/android": "7.6.10",
+    "@capacitor/ios": "7.6.10",
+    "@capacitor/app": "7.1.2",
+    "@capacitor/browser": "7.0.5",
+    "@capacitor/filesystem": "7.1.9",
+    "@capacitor/share": "7.0.4",
+    "@capacitor/geolocation": "7.1.8"
+  },
+  "productName": "Backwoods Brew",
+  "main": "electron/main.cjs",
+  "author": "Backwoods Brew",
+  "description": "Backwoods Brew main app with separate vendor accounting connection.",
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-builder --win dir --x64",
+    "dist:win": "electron-builder --win nsis --x64",
+    "verify": "node scripts/verify.cjs"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.backwoodsbrew.desktop",
+    "productName": "Backwoods Brew",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "www/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    }
+  }
+}

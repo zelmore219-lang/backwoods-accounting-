@@ -1,0 +1,12 @@
+{
+  "appId": "com.backwoodsbrew.main.connected",
+  "appName": "Backwoods Brew Connected",
+  "webDir": "web",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "localhost"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

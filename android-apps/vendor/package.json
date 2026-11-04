@@ -1,0 +1,20 @@
+{
+  "name": "backwoods-vendor-android-connected",
+  "version": "4.1.1",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/core": "7.6.10",
+    "@capacitor/android": "7.6.10",
+    "@capacitor/app": "7.1.2",
+    "@capacitor/browser": "7.0.5",
+    "@capacitor/filesystem": "7.1.9",
+    "@capacitor/share": "7.0.4",
+    "@capacitor/geolocation": "7.1.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "7.6.10"
+  }
+}

@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('www/wholesale.js','utf8');
+const section=source.slice(source.indexOf('function validateBackup('),source.indexOf('function exportAccounting(){'));
+const sandbox={blank:()=>({customers:[],products:[],materials:[],batches:[],orders:[],payments:[],journal:[],movements:[],audit:[]}),cents:n=>Math.round(Number(n||0)*100),date:()=>new Date().toISOString(),reconcile:()=>({errors:[],debit:0,credit:0}),customer:()=>({}),product:()=>({}),d:{customers:[],products:[],materials:[],batches:[],orders:[],payments:[],journal:[],movements:[],audit:[]}};
+vm.createContext(sandbox);vm.runInContext(section,sandbox);
+const good={format:'backwoods-wholesale-v1',data:sandbox.blank()};
+assert.equal(sandbox.validateBackup(good).orders.length,0);
+assert.throws(()=>sandbox.validateBackup({format:'wrong',data:good.data}),/Invalid wholesale/);
+assert.throws(()=>sandbox.validateBackup({format:good.format,data:{orders:[]}}),/missing a valid/);
+const duplicate=structuredClone(good);duplicate.data.customers=[{id:'x'},{id:'x'}];assert.throws(()=>sandbox.validateBackup(duplicate),/Duplicate record ID/);
+const badJournal=structuredClone(good);badJournal.data.journal=[{id:'j',source:'x',entries:[{debit:1,credit:0}]}];assert.throws(()=>sandbox.validateBackup(badJournal),/Unbalanced journal/);
+const negative=structuredClone(good);negative.data.products=[{id:'p',qty:-1,cost:1,price:2}];assert.throws(()=>sandbox.validateBackup(negative),/Invalid product quantity/);
+assert.equal(sandbox.integrityReport().cloudSync,false);
+console.log('7 integrity assertions passed');

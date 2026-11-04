@@ -1,4 +1,4 @@
-"""Local-only business accounting application and durable file-feed worker."""
+"""Loopback accounting service and file-feed worker; optional trusted TLS proxy."""
 import argparse
 import base64
 import csv
@@ -38,7 +38,15 @@ def default_data_dir():
 
 
 class Application:
-    def __init__(self,data_dir):
+    def __init__(self,data_dir,public_origin=None):
+        self.public_origin=None
+        self.public_host=None
+        if public_origin:
+            parsed=urlparse(str(public_origin))
+            if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or parsed.path not in {'','/'} or parsed.query or parsed.fragment or any(c.isspace() for c in parsed.netloc):
+                raise AccountingError('The shared server origin must be an HTTPS address with no credentials, path, query or fragment')
+            self.public_host=parsed.hostname.lower()+(':'+str(parsed.port) if parsed.port and parsed.port!=443 else '')
+            self.public_origin='https://'+self.public_host
         self.data_dir=Path(data_dir).resolve()
         self.data_dir.mkdir(parents=True,exist_ok=True)
         self.path=self.data_dir/"accounting.sqlite3"
@@ -141,8 +149,9 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy","no-referrer")
         self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if filename:self.send_header("Content-Disposition","attachment; filename*=UTF-8''"+quote(filename,safe=""))
-        if set_cookie:self.send_header("Set-Cookie",f"bw_bootstrap={self.app.cookie}; HttpOnly; SameSite=Strict; Path=/")
-        if session_token is not None:self.send_header('Set-Cookie',f'bw_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={28800 if session_token else 0}')
+        secure='; Secure' if self.app.public_host and self.headers.get('Host','').lower()==self.app.public_host else ''
+        if set_cookie:self.send_header("Set-Cookie",f"bw_bootstrap={self.app.cookie}; HttpOnly; SameSite=Strict; Path=/{secure}")
+        if session_token is not None:self.send_header('Set-Cookie',f'bw_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={28800 if session_token else 0}{secure}')
         self.end_headers()
         self.wfile.write(data)
 
@@ -150,12 +159,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_bytes(json.dumps(value,allow_nan=False).encode(),status=status,session_token=session_token)
 
     def trusted_host(self):
-        return self.headers.get("Host")==f"127.0.0.1:{self.server.server_port}"
+        host=self.headers.get('Host','').lower()
+        return host==f"127.0.0.1:{self.server.server_port}" or bool(self.app.public_host and host==self.app.public_host)
+
+    def allowed_origins(self):
+        if self.app.public_host and self.headers.get('Host','').lower()==self.app.public_host:
+            return {self.app.public_origin}
+        return {f'http://127.0.0.1:{self.server.server_port}'}
 
     def authorized(self):
         if not self.trusted_host():return False
         origin=self.headers.get("Origin")
-        if origin and origin!=f"http://127.0.0.1:{self.server.server_port}":return False
+        if origin and origin not in self.allowed_origins():return False
         if self.headers.get("Sec-Fetch-Site")=="cross-site":return False
         ledger=self.app.ledger()
         try:self.user=auth.session_user(ledger,self.cookie_value('bw_session'))
@@ -172,7 +187,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def trusted_request(self):
         origin=self.headers.get('Origin')
-        return self.trusted_host() and (not origin or origin==f'http://127.0.0.1:{self.server.server_port}') and self.headers.get('Sec-Fetch-Site')!='cross-site'
+        return self.trusted_host() and (not origin or origin in self.allowed_origins()) and self.headers.get('Sec-Fetch-Site')!='cross-site'
 
     def do_GET(self):
         if not self.trusted_host():
@@ -513,6 +528,7 @@ def main():
     parser.add_argument("--data-dir",type=Path,default=default_data_dir())
     parser.add_argument("--port",type=int,default=8765)
     parser.add_argument("--no-browser",action="store_true")
+    parser.add_argument('--public-origin',help='Trusted HTTPS origin of a separately configured TLS reverse proxy; backend remains bound to loopback')
     parser.add_argument("--restore",type=Path,help="Restore a downloaded database backup while the app is stopped")
     args=parser.parse_args()
     run_lock=RunLock(args.data_dir)
@@ -539,7 +555,7 @@ def main():
             print("Backup restored; previous database preserved. Start the app normally.")
         finally:candidate.close();run_lock.close()
         return
-    app=Application(args.data_dir)
+    app=Application(args.data_dir,public_origin=args.public_origin)
     server=ThreadingHTTPServer(("127.0.0.1",args.port),Handler)
     server.application=app
     thread=threading.Thread(target=app.watch_feeds,daemon=True)

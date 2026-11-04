@@ -1,0 +1,33 @@
+{
+  "name": "backwoods-vendor-ordering",
+  "productName": "Backwoods Vendor Ordering",
+  "private": true,
+  "version": "4.1.0",
+  "description": "Production-completion build for vendor sales, combined ordering and returns, warehouse, delivery, inventory, invoicing, payments, reporting, security, and recovery.",
+  "author": "Backwoods Brew",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/browser": "^7.0.5",
+    "@capacitor/core": "^7.6.10",
+    "@capacitor/filesystem": "^7.1.9",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/ios": "^7.6.10",
+    "@capacitor/share": "^7.0.4",
+    "@zxing/browser": "^0.2.1",
+    "firebase": "^11.10.0",
+    "jsbarcode": "^3.11.6",
+    "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.1",
+    "signature_pad": "^5.0.4"
+  }
+}

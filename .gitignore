@@ -1,8 +1,16 @@
 __pycache__/
 *.pyc
 .data/
-dist/
+/dist/
 node_modules/
 test-results/
 .build-resources/
 .build-tools/
+.gradle/
+.idea/
+build/
+local.properties
+*.jks
+*.keystore
+keystore.properties
+/android-apps/*/android/app/src/main/assets/

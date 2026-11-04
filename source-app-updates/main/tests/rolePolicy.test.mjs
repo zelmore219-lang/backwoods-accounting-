@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {authorize} from '../src/cloud/rolePolicy.mjs';
+const p=(role)=>({active:true,authUid:'u1',role});
+assert.equal(authorize(p('sales'),'submitOrder','u1'),true);
+assert.equal(authorize(p('packer'),'pack','u1'),true);
+assert.equal(authorize(p('driver'),'deliver','u1'),true);
+for(const [role,action] of [['driver','submitOrder'],['sales','deliver'],['packer','submitOrder'],['accountant','pack']])assert.throws(()=>authorize(p(role),action,'u1'));
+assert.throws(()=>authorize({...p('sales'),active:false},'submitOrder','u1'));
+assert.throws(()=>authorize(p('sales'),'submitOrder','other'));
+console.log('Role policy: 9 assertions passed');

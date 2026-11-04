@@ -1,0 +1,41 @@
+{
+  "name": "backwoods-vendor-ordering",
+  "author": "Backwoods Brew",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "version": "4.1.1",
+  "private": true,
+  "productName": "Backwoods Vendor Ordering Connected",
+  "description": "Backwoods Vendor Ordering with one-way Business Accounting connection",
+  "license": "UNLICENSED",
+  "build": {
+    "appId": "com.backwoodsbrew.vendor.connected",
+    "productName": "Backwoods Vendor Ordering Connected",
+    "electronVersion": "45.2.2",
+    "asar": true,
+    "directories": {
+      "output": "../../dist/source-app-updates/vendor"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "dist/icons/app.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "artifactName": "Backwoods-Vendor-Ordering-Connected-Setup-${version}.${ext}"
+  }
+}

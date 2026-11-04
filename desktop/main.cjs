@@ -9,6 +9,7 @@ else {
   app.whenReady().then(start).catch(error=>{dialog.showErrorBox('Backwoods Business Accounting',error.message);app.quit();});
 }
 async function start(){
+  const remote=require('./company-server.cjs').companyServer(process.env.BACKWOODS_ACCOUNTING_SERVER_URL);
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {label:'File',submenu:[{label:'Print current view',accelerator:'CmdOrCtrl+P',click:()=>window?.webContents.print({printBackground:true})},{type:'separator'},{label:'Quit',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},
     {label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
@@ -19,6 +20,7 @@ async function start(){
   const backend=app.isPackaged?path.join(base,'backend'):path.join(__dirname,'..');
   window=new BrowserWindow({width:1480,height:1000,minWidth:1050,minHeight:700,title:'Backwoods Business Accounting',backgroundColor:'#f5f5ef',icon:path.join(__dirname,'icon.ico'),webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});
   await window.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html><body style="margin:0;background:#153e35;color:#fff;display:grid;place-content:center;height:100vh;font:16px system-ui"><h1>Backwoods</h1><p>Opening your company books…</p></body></html>'));
+  if(!remote){
   let pending='',logs='';
   worker=spawn(python,['-u',path.join(backend,'run.py'),'--no-browser','--port','0'],{cwd:backend,windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
   const started=setTimeout(()=>{dialog.showErrorBox('Startup is taking longer than expected','Close the app and try again. Your accounting records are preserved.');},30000);
@@ -33,6 +35,7 @@ async function start(){
   worker.stderr.on('data',buffer=>{logs=(logs+buffer.toString()).slice(-6000);});
   worker.on('error',error=>{clearTimeout(started);dialog.showErrorBox('Could not start Business Accounting',error.message);app.quit();});
   worker.on('exit',code=>{clearTimeout(started);if(!quitting){dialog.showErrorBox('Accounting service stopped','The local accounting service exited. Your saved data remains on this computer.\n\n'+logs.slice(-1500));app.quit();}});
+  }else origin=remote;
   const secureChild=wc=>{
     wc.setWindowOpenHandler(({url})=>{
       if(origin&&url.startsWith(origin+'/'))return {action:'allow',overrideBrowserWindowOptions:{width:1050,height:900,webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}}};
@@ -43,6 +46,7 @@ async function start(){
   };
   secureChild(window.webContents);
   app.on('web-contents-created',(_event,wc)=>{if(wc!==window?.webContents)secureChild(wc);});
+  if(remote)await window.loadURL(origin);
   try {
     tray=new Tray(path.join(__dirname,'icon.ico'));
     tray.setToolTip('Backwoods Business Accounting');

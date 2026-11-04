@@ -10,6 +10,10 @@ import shutil
 import struct
 
 ROOT=Path(__file__).resolve().parents[1]
+PROFILE_CONFIG={
+    'main':{'source':'main','originalLabel':'Backwoods Brew','connectedProfile':'Backwoods Brew Connected','originalProfiles':['Backwoods Brew','backwoods-brew-pc'],'originalExecutables':['Backwoods Brew.exe']},
+    'vendor':{'source':'vendor','originalLabel':'Backwoods Vendor Ordering','connectedProfile':'Backwoods Vendor Ordering Connected','originalProfiles':['Backwoods Vendor Ordering','backwoods-vendor-ordering'],'originalExecutables':['Backwoods Vendor Ordering.exe']},
+}
 
 
 def extract_asar(archive,destination):
@@ -66,10 +70,13 @@ def replace_once(text,old,new):
 
 def common(destination,source,html):
     electron=destination/'electron'
-    (electron/'business-accounting-config.json').write_text(json.dumps({'source':source}))
+    (electron/'business-accounting-config.json').write_text(json.dumps(PROFILE_CONFIG[source],indent=2)+'\n')
     shutil.copy2(ROOT/'connectors/desktop-feed.cjs',electron/'desktop-feed.cjs')
+    shutil.copy2(ROOT/'connectors/connected-profile.cjs',electron/'connected-profile.cjs')
     main=electron/'main.cjs'
-    main.write_text(main.read_text()+"\nrequire('./desktop-feed.cjs');\n")
+    lines=main.read_text().splitlines(keepends=True)
+    lines.insert(1,"require('./connected-profile.cjs').prepareProfile({app,dialog}, require('./business-accounting-config.json'));\n")
+    main.write_text(''.join(lines)+"\nrequire('./desktop-feed.cjs');\n")
     preload=electron/'preload.cjs'
     preload.write_text(preload.read_text()+"\nrequire('electron').contextBridge.exposeInMainWorld('businessAccounting', {status:()=>require('electron').ipcRenderer.invoke('business-accounting:status')});\n")
     shutil.copy2(ROOT/'connectors/source-panel.js',html.parent/'business-accounting-panel.js')
@@ -82,7 +89,9 @@ MAIN_HOOK=r'''
     const keys=['accounts','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores'];
     const data={};
     for(const key of keys) data[key]=(Array.isArray(r[key])?r[key]:[]).filter(row=>!['vendor-ordering','vendor'].includes(String(row.sourceSystem||row.sourceApp||'').toLowerCase()));
-    data.generalLedger=Ga(data);
+    // Compute with the complete native state, while exporting only selected
+    // financial fields. Native settings stay in memory and are not transmitted.
+    data.generalLedger=Ga({...r,...data});
     data.products=data.products.map(p=>{const {image,photo,photoDataUrl,...rest}=p;return rest;});
     return {schemaVersion:1,app:'Backwoods Brew',type:'business-accounting-feed',data};
   };
@@ -137,6 +146,32 @@ def build(main_dir,vendor_asar,output):
     s=replace_once(vendor_main.read_text(),"win.loadURL('http://localhost:5173')","win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))")
     vendor_main.write_text(s)
     common(vendor_dest,'vendor',vendor_dest/'dist/index.html')
+    # The uploaded apps already contain bundled renderer dependencies. The Electron
+    # main/preload code uses only Electron and Node built-ins; no npm runtime tree
+    # was present in the supplied vendor ASAR.
+    for destination,source,version in [(main_dest,'main','8.2.1'),(vendor_dest,'vendor','4.1.1')]:
+        original_package=json.loads((destination/'package.json').read_text())
+        connected_package={key:original_package[key] for key in ['name','author','type','main'] if key in original_package}
+        connected_package.update({'version':version,'private':True,'productName':PROFILE_CONFIG[source]['connectedProfile'],
+            'description':PROFILE_CONFIG[source]['originalLabel']+' with one-way Business Accounting connection','license':'UNLICENSED'})
+        connected_package['build']={
+            'appId':'com.backwoodsbrew.main.connected' if source=='main' else 'com.backwoodsbrew.vendor.connected',
+            'productName':PROFILE_CONFIG[source]['connectedProfile'],'electronVersion':'45.2.2','asar':True,
+            'directories':{'output':'../../dist/source-app-updates/'+source},
+            'files':['electron/**/*','www/**/*','assets/**/*','src/**/*','package.json'] if source=='main' else ['electron/**/*','dist/**/*','package.json'],
+            'win':{'target':['nsis'],'icon':'assets/icon.ico' if source=='main' else 'dist/icons/app.ico','signAndEditExecutable':False},
+            'nsis':{'oneClick':False,'allowToChangeInstallationDirectory':True,'perMachine':False,'createDesktopShortcut':True,'createStartMenuShortcut':True,'deleteAppDataOnUninstall':False},
+            'artifactName':('Backwoods-Brew-Connected' if source=='main' else 'Backwoods-Vendor-Ordering-Connected')+'-Setup-${version}.${ext}',
+        }
+        if source=='main':connected_package['scripts']={'verify':'node scripts/verify.cjs'}
+        (destination/'package.json').write_text(json.dumps(connected_package,indent=2)+'\n')
+        (destination/'ORIGINAL-PACKAGE.json').write_text(json.dumps(original_package,indent=2)+'\n')
+        html=destination/('www/index.html' if source=='main' else 'dist/index.html')
+        import re
+        html.write_text(re.sub(r'<title>[^<]*</title>','<title>'+PROFILE_CONFIG[source]['connectedProfile']+'</title>',html.read_text(),count=1))
+        if source=='vendor':
+            process_file=destination/'electron/main.cjs'
+            process_file.write_text(process_file.read_text().replace("path.join(__dirname, '..', 'public', 'icons', 'icon-512.png')","path.join(__dirname, '..', 'dist', 'icons', 'icon-512.png')"))
     pack_asar(main_dest,output/'main-connected.asar')
     pack_asar(vendor_dest,output/'vendor-connected.asar')
     manifest={}
@@ -146,6 +181,9 @@ def build(main_dir,vendor_asar,output):
     (output/'README.txt').write_text('''CONNECTED TEST COPIES — preserve your installed apps and data.
 
 These are application archives, not Windows installers. The originals were not changed.
+Installer-ready versions are Main 8.2.1 Connected and Vendor 4.1.1 Connected,
+based on the uploaded Main 8.2.0 and Vendor 4.1.0 packages. Connected editions copy
+the previous local profile on first launch and leave that original profile intact.
 Back up both source apps before testing. A separate installation folder does not
 isolate Electron user data. Use a separate Windows user or set
 BACKWOODS_TEST_DATA_DIR to a disposable profile folder before launching the test
