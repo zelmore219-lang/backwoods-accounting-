@@ -106,3 +106,5 @@ Build the Windows installer with the checked-in desktop configuration and a chec
 5. The output is `dist\windows\Backwoods-Business-Accounting-Setup-1.0.0.exe`.
 
 The build needs Internet access and about 2 GB of free disk space. It does not need payroll credentials and does not publish anything. The installed app includes its runtime, so people installing the finished EXE do not need Python or Node.js. This Windows batch workflow has been reviewed but has not been executed on a Windows machine in this cloud session; failures remain visible in its command window.
+
+The runtime-copy step uses Windows Robocopy, including support for long paths, and treats its documented success codes (0–7) correctly. If an older copy of the build script stops with an XCopy “File creation error,” replace `BUILD-INSTALLER-WINDOWS.cmd` with the current version in this repository and run it again in the same folder. The previously downloaded runtime and build environment are reused.

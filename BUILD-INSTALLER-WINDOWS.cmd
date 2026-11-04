@@ -32,8 +32,20 @@ if not exist ".build-resources\managed-python\cpython-3.12.15-windows-x86_64-non
   echo The portable runtime was not found at the expected path.
   goto failed
 )
-xcopy ".build-resources\managed-python\cpython-3.12.15-windows-x86_64-none\*" ".build-resources\python\" /E /I /H /Y >nul
-if errorlevel 1 goto failed
+echo Copying the portable runtime into the installer folder...
+if not exist ".build-resources\python" mkdir ".build-resources\python"
+if not exist ".build-resources\python" (
+  echo Could not create the runtime destination. Move the extracted app to a short local path, such as C:\BackwoodsBuild.
+  goto failed
+)
+rem Robocopy supports long Windows paths. Exit codes 0 through 7 are successful.
+rem Do not use /MIR: preserve any other existing build files.
+robocopy ".build-resources\managed-python\cpython-3.12.15-windows-x86_64-none" ".build-resources\python" /E /R:1 /W:1 /NFL /NDL /NP
+if errorlevel 8 goto failed
+if not exist ".build-resources\python\python.exe" (
+  echo The runtime copy did not produce python.exe. See the copy results above.
+  goto failed
+)
 
 echo Installing the pinned desktop build dependencies...
 call npm ci --prefix desktop --ignore-scripts --no-audit --no-fund
