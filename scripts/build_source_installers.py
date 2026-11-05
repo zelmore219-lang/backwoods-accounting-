@@ -29,6 +29,7 @@ def build(kind,builder,nsis,skip_pack=False):
     output=folder/('Backwoods-Brew-Connected' if kind=='main' else 'Backwoods-Vendor-Ordering-Connected')
     output=Path(str(output)+'-Setup-'+version+'.exe')
     icon=project/('assets/icon.ico' if kind=='main' else 'dist/icons/app.ico')
+    subprocess.run(['node',str(ROOT/'scripts/set_windows_icon.cjs'),str(app_dir/exe),str(icon),name,version],check=True)
     key='BackwoodsBrewConnected' if kind=='main' else 'BackwoodsVendorOrderingConnected'
     files=sorted(p for p in app_dir.rglob('*') if p.is_file())
     manifest={p.relative_to(app_dir).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}

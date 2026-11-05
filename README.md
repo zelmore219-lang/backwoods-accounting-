@@ -36,7 +36,7 @@ The vendor connected copy additionally captures historical-at-event unit costs f
 
 The main app's preferred connection exports its own general ledger, including its payroll and roasting rules. Plain backup imports support core retail records but reject unsupported components. **Choose the main-ledger connection before importing plain main-app backups.** The two formats use different source IDs, so changing formats in a populated company requires a reviewed migration and is blocked rather than double-posted.
 
-Vendor customer payments duplicated in both an invoice and the payment list are counted once. Approved credits already included on an invoice are not posted a second time. Inventory purchase receipts accrue inventory and accounts payable; their companion stock movements do not also accrue the purchase. Supplier invoice formats not implemented in the supplied build are rejected for review. Hard-deleted source transactions are never silently deleted from posted books.
+Vendor customer payments duplicated in both an invoice and the payment list are counted once. Approved credits already included on an invoice are not posted a second time. Inventory purchase receipts accrue inventory and accounts payable; their companion stock movements do not also accrue the purchase. Supplier invoice formats not implemented in the supplied build are rejected for review. Complete automatic source snapshots reverse deleted unpaid invoices and remove their outstanding balances, retaining revisions and original postings for audit. Voided unpaid invoices are reversed too. An invoice records accounts receivable, not money received; only an explicit payment posts to cash, bank, or undeposited funds. Revenue and profit use accrual accounting and can include unpaid invoices. Invoices with payments need an explicit refund or reviewed correction before deletion or voiding can be imported. Closed periods and reconciled postings remain protected. Missing non-invoice source transactions still require review.
 
 ## All three Android APKs
 
@@ -116,3 +116,7 @@ The build needs Internet access and about 2 GB of free disk space. It does not n
 The runtime-copy step uses Windows Robocopy, including support for long paths, and treats its documented success codes (0–7) correctly. If an older copy of the build script stops with an XCopy “File creation error,” replace `BUILD-INSTALLER-WINDOWS.cmd` with the current version in this repository and run it again in the same folder. The previously downloaded runtime and build environment are reused.
 
 If `npm ci` says the lockfile is missing, make sure you extracted the **entire ZIP**. Running the CMD from inside a ZIP causes Windows to put only that file into a temporary directory; the required `desktop/package-lock.json` and application folders are then absent. The build script now checks the full project before installing tools. Do not generate a replacement lockfile to work around incomplete extraction.
+
+## App updates
+
+Main, Vendor and Business Accounting now include Windows and Android update wizards. See [the update and GitHub setup guide](UPDATING.md) for the one-time installation, signing compatibility, and the Actions workflow used to publish future updates.

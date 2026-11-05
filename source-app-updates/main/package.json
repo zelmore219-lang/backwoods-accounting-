@@ -3,7 +3,7 @@
   "author": "Backwoods Brew",
   "type": "module",
   "main": "electron/main.cjs",
-  "version": "8.2.4",
+  "version": "8.2.5",
   "private": true,
   "productName": "Backwoods Brew Connected",
   "description": "Backwoods Brew with one-way Business Accounting connection",
@@ -38,7 +38,9 @@
       "createStartMenuShortcut": true,
       "deleteAppDataOnUninstall": false
     },
-    "artifactName": "Backwoods-Brew-Connected-Setup-${version}.${ext}"
+    "artifactName": "Backwoods-Brew-Connected-Setup-${version}.${ext}",
+    "beforePack": "./scripts/updater_pack_hook.cjs",
+    "afterPack": "./scripts/windows_icon_hook.cjs"
   },
   "scripts": {
     "verify": "node scripts/verify.cjs"

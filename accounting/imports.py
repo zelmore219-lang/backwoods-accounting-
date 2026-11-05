@@ -76,6 +76,10 @@ def sanitize_payload(payload,source):
     return {**{k:v for k,v in payload.items() if k in {'schemaVersion','app','type','exportedAt'}},'data':result}
 
 
+def cancelled(row):
+    return bool(row.get("voided") or row.get("deleted")) or str(row.get("status", "")).strip().lower() in {"void", "voided", "cancelled", "canceled", "deleted"}
+
+
 def mirrored(row):
     return str(row.get("sourceSystem") or row.get("sourceApp") or "").lower() in {"vendor-ordering", "vendor", "backwoods vendor ordering"}
 
@@ -95,6 +99,7 @@ def main_import(payload):
     if "generalLedger" in data:
         if not isinstance(data["generalLedger"], list):
             raise AccountingError("generalLedger must be an array")
+        void_invoices={str(r.get("invoiceNo") or r["id"]) for r in data.get("invoices",[]) if cancelled(r) and not mirrored(r)}
         grouped = defaultdict(list)
         for r in data["generalLedger"]:
             if mirrored(r):
@@ -102,6 +107,10 @@ def main_import(payload):
             source_id = str(r.get("source", "")).strip()
             if not source_id:
                 raise AccountingError("General ledger line has no source reference")
+            if any(source_id=="Invoice Payment "+ref for ref in void_invoices):
+                raise AccountingError("Voided invoice has a payment; record a refund or reviewed correction in the source app")
+            if any(source_id=="Invoice "+ref for ref in void_invoices):
+                continue
             # Source labels in the recovered main app are stable across exports.
             grouped[source_id].append(r)
         for sid, rows in grouped.items():
@@ -120,6 +129,8 @@ def main_import(payload):
                         doc["amount"]=money(r,"total",r.get("amount",0))
                         doc["balance"]=0 if str(r.get("status","")).lower()=="paid" else doc["amount"]
                         doc["reference"]=str(r.get("invoiceNo") or r.get("reference") or r["id"])
+                    if collection=="invoices" and cancelled(r):
+                        doc.update(amount=0,balance=0,kind="voided-support-invoices")
                     docs.append(doc)
         warnings.append("Main-app totals follow its existing ledger rules. Review the source app's bank, payroll, and rounding classifications.")
         return docs, accounts, warnings
@@ -164,6 +175,10 @@ def main_import(payload):
     for key, kind in [("expenses", "expense"), ("bills", "bill"), ("invoices", "invoice")]:
         for r in data.get(key, []):
             if mirrored(r): continue
+            if kind == "invoice" and cancelled(r):
+                docs.append(record("voided-invoice", r, [], party=r.get("customer", "")))
+                docs[-1]["id"] = "invoice:"+identifier(r)
+                continue
             paid = str(r.get("status", "")).lower() == "paid"
             if kind == "invoice":
                 subtotal = money(r, "subtotal", r.get("amount", 0))
@@ -230,16 +245,17 @@ def vendor_import(payload):
         oid=identifier(r)
         status=str(r.get("status","")).lower()
         recognized={"delivered","payment_pending","completed"}
-        cancelled=status in {"cancelled","void","voided"}
+        is_cancelled=cancelled(r)
         draft=status in {"draft","submitted","approved","packing","packed","out_for_delivery","ready","scheduled"}
-        if not (status in recognized or cancelled or draft):
+        if not (status in recognized or is_cancelled or draft):
             raise AccountingError(f"Unknown vendor order status '{status}' for {oid}")
         if draft:
             if r.get("payments"): raise AccountingError(f"Undelivered order {oid} has payments; deposit accounting needs review")
             continue
-        if cancelled:
-            if r.get("payments"): raise AccountingError(f"Cancelled order {oid} has payments; record the refund explicitly")
-            docs.append(record("invoice",r,[],date_=r.get("deliveredAt") or r.get("createdAt"),party=customers.get(str(r.get("customerId")),"")))
+        if is_cancelled:
+            if any(p["orderId"]==oid for p in payments.values()): raise AccountingError(f"Cancelled order {oid} has payments; record the refund explicitly")
+            docs.append(record("voided-invoice",r,[],date_=r.get("deliveredAt") or r.get("createdAt"),party=customers.get(str(r.get("customerId")),"")))
+            docs[-1]["id"]="invoice:"+oid
             continue
         active.add(oid)
         gross=returns=0

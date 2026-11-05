@@ -30,6 +30,7 @@ def build(builder,nsis,skip_pack=False):
     if not (app_dir/'Backwoods Business Accounting.exe').exists():raise ValueError('Packaged application is missing')
     if not (app_dir/'resources/python/python.exe').exists():raise ValueError('Bundled Windows Python runtime is missing')
     version=json.loads((ROOT/'desktop/package.json').read_text())['version']
+    subprocess.run(['node',str(ROOT/'scripts/set_windows_icon.cjs'),str(app_dir/'Backwoods Business Accounting.exe'),str(ROOT/'desktop/icon.ico'),'Backwoods Business Accounting',version],check=True)
     output=ROOT/f'dist/windows/Backwoods-Business-Accounting-Setup-{version}.exe'
     files=sorted(p for p in app_dir.rglob('*') if p.is_file())
     manifest={p.relative_to(app_dir).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in files}

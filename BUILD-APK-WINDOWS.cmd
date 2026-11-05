@@ -21,6 +21,10 @@ if not exist "%JAVA_HOME%\bin\javac.exe" (
 )
 
 echo Installing pinned Android build dependencies...
+py -3.12 -m pip install --disable-pip-version-check Pillow==13.0.0
+if errorlevel 1 goto failed
+py -3.12 scripts\prepare_app_icons.py
+if errorlevel 1 goto failed
 py -3.12 scripts\prepare_accounting_android.py
 if errorlevel 1 (
   echo The full accounting APK needs Python 3.12 for its build tools. The finished APK bundles its own engine.
@@ -54,14 +58,14 @@ if errorlevel 1 goto failedPop
 popd
 
 if not exist "android-apks" mkdir android-apks
-copy /Y "android-apps\main\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Brew-Connected-8.2.4-test.apk"
+copy /Y "android-apps\main\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Brew-Connected-8.2.5-test.apk"
 if errorlevel 1 goto failed
-copy /Y "android-apps\vendor\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Vendor-Connected-4.1.4-test.apk"
+copy /Y "android-apps\vendor\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Vendor-Connected-4.1.6-test.apk"
 if errorlevel 1 goto failed
-copy /Y "android-apps\accounting\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Business-Accounting-1.0.2-test.apk"
+copy /Y "android-apps\accounting\android\app\build\outputs\apk\debug\app-debug.apk" "android-apks\Backwoods-Business-Accounting-1.0.4-test.apk"
 if errorlevel 1 goto failed
 echo All three installable test APKs are in android-apks.
-echo Business Accounting requires your shared HTTPS company accounting server.
+echo Business Accounting bundles its engine and syncs directly through Firebase after the documented setup.
 echo These use debug signing. Production releases need your own signing key.
 explorer "%CD%\android-apks"
 pause

@@ -50,6 +50,25 @@ class LedgerTests(unittest.TestCase):
         self.load(vendor(),'vendor')
         entries={r['entry_id'] for r in self.ledger.rows() if r['source_id']=='payment:p1'}
         self.assertEqual(len(entries),1)
+    def test_driver_check_pickup_posts_only_collected_amount_once(self):
+        p=vendor()
+        payment={**p['data']['payments'][0],'method':'Check','checkNumber':'1042','driver':'Route Driver','driverId':'driver-1','amount':25}
+        p['data']['payments']=[payment];p['data']['orders'][0]['payments']=[copy.deepcopy(payment)]
+        self.load(p,'vendor');self.load(p,'vendor')
+        balances={a['code']:a['balance'] for a in self.ledger.report()['trial']}
+        self.assertEqual(balances['1100'],7400)
+        self.assertEqual(balances['1030'],2500)
+        self.assertEqual(balances.get('1020',0),0)
+        self.assertEqual(len({r['entry_id'] for r in self.ledger.rows() if r['source_id']=='payment:p1'}),1)
+        stored=json.loads(self.ledger.db.execute("SELECT payload FROM documents WHERE source_id='payment:p1'").fetchone()[0])
+        self.assertEqual(stored['original']['checkNumber'],'1042')
+        self.assertEqual(stored['original']['driverId'],'driver-1')
+    def test_completed_status_without_collection_is_still_due(self):
+        p=vendor();p['data']['payments']=[]
+        p['data']['orders'][0].update(status='completed',payments=[])
+        self.load(p,'vendor')
+        self.assertEqual(self.ledger.db.execute("SELECT balance FROM documents WHERE source_id='invoice:o1'").fetchone()[0],9900)
+        self.assertFalse(any(r['account'] in {'1010','1020','1030'} for r in self.ledger.rows()))
     def test_conflicting_payment_copies_rejected(self):
         p=vendor();p['data']['payments'][0]=copy.deepcopy(p['data']['payments'][0]);p['data']['payments'][0]['amount']=60
         with self.assertRaisesRegex(AccountingError,'Conflicting'):self.load(p,'vendor')
@@ -94,6 +113,15 @@ class LedgerTests(unittest.TestCase):
     def test_main_exact_ledger_preserves_payroll_accounts(self):
         p={'data':{'generalLedger':[{'source':'Payroll p1','date':'2026-10-01','account':'5200 Wages','debit':100,'credit':0},{'source':'Payroll p1','date':'2026-10-01','account':'1020 Bank Account','debit':0,'credit':100}]}}
         self.load(p);self.assertEqual(self.ledger.report()['expense'],10000)
+    def test_main_backup_unpaid_invoice_does_not_post_cash_and_void_reverses(self):
+        p=main_backup();p['data']['orders']=[]
+        p['data']['invoices']=[{'id':'i1','date':'2026-10-01','customer':'Customer','subtotal':100,'total':100,'status':'Unpaid'}]
+        self.load(p)
+        self.assertEqual(next(a for a in self.ledger.report()['trial'] if a['code']=='1100')['balance'],10000)
+        self.assertFalse(any(r['account'] in {'1010','1020','1030'} for r in self.ledger.rows()))
+        p['data']['invoices'][0]['status']='Voided';self.load(p)
+        self.assertEqual(self.ledger.report()['income'],0)
+        self.assertEqual(next(a for a in self.ledger.report()['trial'] if a['code']=='1100')['balance'],0)
     def test_vendor_mirrors_are_not_counted_in_main(self):
         p=main_backup();p['data']['invoices']=[{'id':'mirror','sourceSystem':'vendor-ordering','date':'2026-10-01','amount':100}]
         self.load(p);self.assertEqual(self.ledger.report()['income'],10000)
@@ -305,12 +333,88 @@ class HttpTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as e:
             self.post('/api/import',{'source':'main','payload':{'data':{'generalLedger':[]}}})
         self.assertEqual(e.exception.code,400)
-    def test_missing_posted_feed_record_is_not_silently_deleted(self):
+    def unpaid_vendor(self):
+        p=vendor();p['type']='business-accounting-feed'
+        p['data']['orders'][0]['payments']=[];p['data']['payments']=[]
+        return p
+    def test_invoice_is_due_until_explicit_payment(self):
+        p=self.unpaid_vendor()
+        self.post('/api/import',{'source':'vendor','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(next(d for d in state['documents'] if d['source_id']=='invoice:o1')['balance'],9900)
+        self.assertEqual(sum(a['balance'] for a in state['report']['trial'] if a['code'] in {'1010','1020','1030'}),0)
+        p['exportedAt']='2026-10-04T00:00:00Z'
+        p['data']['payments']=vendor()['data']['payments']
+        self.post('/api/import',{'source':'vendor','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(next(d for d in state['documents'] if d['source_id']=='invoice:o1')['balance'],4900)
+        self.assertEqual(next(a for a in state['report']['trial'] if a['code']=='1030')['balance'],5000)
+    def test_deleted_unpaid_invoice_reverses_and_can_be_restored(self):
+        p=self.unpaid_vendor();self.post('/api/import',{'source':'vendor','payload':p})
+        removed=copy.deepcopy(p);removed['data']['orders']=[];removed['exportedAt']='2026-10-04T00:00:00Z'
+        preview=self.post('/api/import/preview',{'source':'vendor','payload':removed})
+        self.assertEqual(preview['changed'],1)
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],9000)
+        result=self.post('/api/import',{'source':'vendor','payload':removed});self.assertEqual(result['changed'],1)
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],0)
+        d=next(d for d in state['documents'] if d['source_id']=='invoice:o1')
+        self.assertEqual((d['balance'],d['amount'],d['kind']),(0,0,'deleted-invoice'))
+        self.post('/api/import',{'source':'vendor','payload':removed})
+        p['exportedAt']='2026-10-05T00:00:00Z';self.post('/api/import',{'source':'vendor','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],9000)
+        ledger=self.app.ledger()
+        try:self.assertEqual(ledger.db.execute("SELECT COUNT(*) FROM document_history WHERE source_id='invoice:o1'").fetchone()[0],3)
+        finally:ledger.close()
+    def test_voided_unpaid_invoice_reverses(self):
+        p=self.unpaid_vendor();self.post('/api/import',{'source':'vendor','payload':p})
+        p['data']['orders'][0]['status']='voided';p['exportedAt']='2026-10-04T00:00:00Z'
+        self.post('/api/import',{'source':'vendor','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],0)
+        self.assertEqual(next(d for d in state['documents'] if d['source_id']=='invoice:o1')['kind'],'voided-invoice')
+    def test_deleting_paid_invoice_requires_correction(self):
         p=vendor();p['type']='business-accounting-feed'
         self.post('/api/import',{'source':'vendor','payload':p})
         p['data']['orders']=[];p['data']['payments']=[]
         with self.assertRaises(urllib.error.HTTPError) as e:self.post('/api/import',{'source':'vendor','payload':p})
         self.assertEqual(e.exception.code,400)
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],9000)
+    def test_deletion_respects_closed_period_and_partial_snapshots(self):
+        p=self.unpaid_vendor();self.post('/api/import',{'source':'vendor','payload':p})
+        p['data']['orders']=[];del p['data']['payments']
+        with self.assertRaises(urllib.error.HTTPError):self.post('/api/import',{'source':'vendor','payload':p})
+        p['data']['payments']=[]
+        self.post('/api/settings',{'closed_through':'2026-10-31'})
+        with self.assertRaises(urllib.error.HTTPError):self.post('/api/import',{'source':'vendor','payload':p})
+    def test_stale_deletion_does_not_reverse_current_invoice(self):
+        p=self.unpaid_vendor();self.post('/api/import',{'source':'vendor','payload':p})
+        p['data']['orders']=[];p['exportedAt']='2026-10-02T00:00:00Z'
+        with self.assertRaises(urllib.error.HTTPError):self.post('/api/import',{'source':'vendor','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],9000)
+    def main_invoice_feed(self):
+        return {'type':'business-accounting-feed','exportedAt':'2026-10-03T00:00:00Z','data':{
+            'invoices':[{'id':'i1','invoiceNo':'I-001','date':'2026-10-01','subtotal':100,'total':100,'status':'Unpaid'}],
+            'generalLedger':[{'source':'Invoice I-001','date':'2026-10-01','account':'1100','debit':100},
+                             {'source':'Invoice I-001','date':'2026-10-01','account':'4000','credit':100}]}}
+    def test_main_ledger_invoice_deletion_reverses_posting_and_support(self):
+        p=self.main_invoice_feed();self.post('/api/import',{'source':'main','payload':p})
+        p['data']['invoices']=[];p['data']['generalLedger']=[];p['exportedAt']='2026-10-04T00:00:00Z'
+        self.post('/api/import',{'source':'main','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],0)
+        self.assertTrue(all(d['balance']==0 for d in state['documents']))
+    def test_main_ledger_void_ignores_source_invoice_posting(self):
+        p=self.main_invoice_feed();self.post('/api/import',{'source':'main','payload':p})
+        p['data']['invoices'][0]['status']='Voided';p['exportedAt']='2026-10-04T00:00:00Z'
+        self.post('/api/import',{'source':'main','payload':p})
+        state=json.loads(self.client.open(self.base+'/api/state').read())
+        self.assertEqual(state['report']['income'],0)
+        self.assertTrue(all(d['balance']==0 for d in state['documents']))
     def test_manual_void_keeps_audit_and_reverses_expense(self):
         self.post('/api/manual-document',{'kind':'expense','date':'2026-11-02','party':'Power company','reference':'VOID-1','amount':25,'account':'5400'})
         state=json.loads(self.client.open(self.base+'/api/state').read());d=next(d for d in state['documents'] if d['reference']=='VOID-1')

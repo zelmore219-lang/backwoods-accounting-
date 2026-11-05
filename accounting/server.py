@@ -126,10 +126,45 @@ class Application:
                     prior_mode='ledger' if 'generalLedger' in unwrap(json.loads(previous[0])) else 'backup'
                     if prior_mode!=current_mode:
                         raise AccountingError('Main-app ledger feeds and plain backups use different source IDs. Continue using the original import format; switching requires a reviewed migration to avoid duplicate postings.')
-            if isinstance(payload,dict) and payload.get('type')=='business-accounting-feed':
+            for doc in documents:
+                if doc['kind'] in {'voided-invoice','voided-support-invoices'}:
+                    old=ledger.db.execute('SELECT payload FROM documents WHERE source=? AND source_id=?',(source,doc['id'])).fetchone()
+                    if old:
+                        prior=json.loads(old[0])
+                        if prior['amount']>prior['balance'] or prior.get('paymentHistory'):
+                            raise AccountingError(f"Invoice {prior['reference']} has payments; record a refund or reviewed correction before voiding")
+            if payload.get('type')=='business-accounting-feed':
+                # These connectors send complete snapshots. Missing invoices are
+                # source corrections, represented as revisions, never SQL deletes.
                 incoming={d['id'] for d in documents}
+                data=unwrap(enriched)
                 for old in ledger.db.execute('SELECT source_id,payload FROM documents WHERE source=?',(source,)):
-                    if old['source_id'] not in incoming and json.loads(old['payload'])['lines']:
+                    if old['source_id'] in incoming:
+                        continue
+                    prior=json.loads(old['payload'])
+                    if prior.get('sourceDeleted'):
+                        continue
+                    invoice=prior['kind'] in {'invoice','support-invoices','voided-invoice','voided-support-invoices'}
+                    main_ledger=(source=='main' and prior['kind']=='ledger' and 'generalLedger' in data
+                                 and prior['reference'].startswith(('Invoice ', 'Invoice Payment ')))
+                    # Never infer that a payment was refunded because its invoice
+                    # disappeared. Paid invoices require an explicit correction.
+                    if invoice:
+                        paid=prior['amount']-prior['balance']
+                        if paid>0 or prior.get('paymentHistory'):
+                            raise AccountingError(f"Deleted invoice {prior['reference']} has payments; record a refund or reviewed correction in the source app")
+                    if invoice or main_ledger:
+                        collection='orders' if source=='vendor' else 'invoices'
+                        if not payload.get('exportedAt') or not isinstance(data.get(collection),list):
+                            raise AccountingError('Invoice deletion requires a timestamped complete source snapshot')
+                        if source=='vendor' and not isinstance(data.get('payments'),list):
+                            raise AccountingError('Invoice deletion requires the complete payments collection')
+                        tombstone={**prior,'lines':[],'amount':0,'balance':0,
+                                   'kind':'deleted-'+prior['kind'],'sourceDeleted':True,
+                                   'memo':prior.get('memo','')+' · Deleted in source app'}
+                        documents.append(tombstone)
+                        warnings.append(f"{prior['reference']} was deleted in the source app; its posting is reversed and history retained.")
+                    elif prior['lines']:
                         raise AccountingError(f"Previously posted record {old['source_id']} is absent from this snapshot. Restore or reverse it in the source app; missing records are never silently deleted.")
             # A source app that already mirrored vendor records must flag them.
             # Catch obvious unmarked duplicate invoice references across feeds.

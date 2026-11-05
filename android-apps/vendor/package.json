@@ -1,6 +1,6 @@
 {
   "name": "backwoods-vendor-android-connected",
-  "version": "4.1.4",
+  "version": "4.1.6",
   "private": true,
   "scripts": {
     "sync": "cap sync android"
