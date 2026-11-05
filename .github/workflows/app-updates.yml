@@ -18,6 +18,10 @@ on:
         description: 'Main version (e.g. 8.2.6; blank uses repository version)'
         required: false
         type: string
+      reuse_accounting:
+        description: 'Keep the exact published Accounting packages when only Main/Vendor change'
+        default: false
+        type: boolean
       publish:
         description: 'Publish packages and activate the update feed after validation'
         default: true
@@ -36,6 +40,7 @@ jobs:
       ACCOUNTING_VERSION: ${{ inputs.accounting_version }}
       VENDOR_VERSION: ${{ inputs.vendor_version }}
       MAIN_VERSION: ${{ inputs.main_version }}
+      REUSE_ACCOUNTING: ${{ inputs.reuse_accounting }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -83,10 +88,15 @@ jobs:
           python -m unittest discover -s tests -q
           node tests/updater.test.cjs
           node tests/updater-electron.test.cjs
+          node tests/updater-transport.test.cjs
           node tests/source_updates.test.cjs
           node tests/firebase_feed.test.cjs
           python -m playwright install --with-deps chromium
           python scripts/browser_updater_smoke.py
+          python scripts/browser_settings_updates_smoke.py
+          node desktop/node_modules/electron/install.js
+          desktop/node_modules/electron/dist/electron --no-sandbox --ozone-platform=headless scripts/electron_live_updater.cjs --download
+      - uses: android-actions/setup-android@v3
       - name: Prepare Android SDK and native assets
         run: |
           set +o pipefail
@@ -107,7 +117,12 @@ jobs:
           python scripts/build_source_installers.py main --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
           python scripts/build_source_installers.py vendor --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
       - name: Validate identities and prepare update feed
-        run: python scripts/build_update_release.py --tag "$RELEASE_TAG"
+        run: |
+          if [ "$REUSE_ACCOUNTING" = "true" ]; then
+            python scripts/build_update_release.py --tag "$RELEASE_TAG" --reuse-accounting
+          else
+            python scripts/build_update_release.py --tag "$RELEASE_TAG"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: windows-and-android-updates

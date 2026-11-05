@@ -1,5 +1,5 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require("electron");
-require('./connected-profile.cjs').prepareProfile({app,dialog}, require('./business-accounting-config.json'));
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require("electron");
+const profileReady=require('./connected-profile.cjs').prepareProfileWithChooser({app,dialog}, require('./business-accounting-config.json'));
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -361,6 +361,7 @@ function createWindow() {
     icon: path.join(__dirname, "..", "assets", "icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
+      session: session.fromPath(app.getPath("userData")),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -393,13 +394,13 @@ function createWindow() {
 
 app.setName(appName);
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-} else {
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    const profile=await profileReady;
+    if(profile.cancelled)return;
+    if(!app.requestSingleInstanceLock()){app.quit();return;}
     const win = createWindow();
-    sharedUpdater=require('./updater/electron.cjs').setup({kind:'main',name:'Backwoods Brew',parent:()=>win});
+    const updateNetwork=path.join(app.getPath('userData'),'updater-network');fs.mkdirSync(updateNetwork,{recursive:true});
+    sharedUpdater=require('./updater/electron.cjs').setup({kind:'main',name:'Backwoods Brew',parent:()=>win,networkSession:session.fromPath(updateNetwork)});
     ipcMain.handle('backwoods:open-updates',event=>{if(event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Main app window required');return sharedUpdater.open();});
     publicUpdateStatus({ message: app.isPackaged ? "Updater ready." : "Updater disabled in dev mode." });
 
@@ -417,8 +418,7 @@ if (!gotLock) {
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
-  });
-}
+  }).catch(error=>{dialog.showErrorBox("Backwoods Brew — startup",error.message);app.quit();});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

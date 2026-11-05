@@ -2,7 +2,9 @@ const {app,BrowserWindow,ipcMain,net,dialog,shell,Notification}=require('electro
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const core=require('./core.cjs');
-function setup({kind,name,parent}){
+const createTransport=require('./electron-transport.cjs');
+function setup({kind,name,parent,fetch,networkSession}){
+ const transport=fetch||createTransport(net,networkSession);
  let wizard,busy=false,info,downloaded='',notifiedVersion='',config={enabled:true,autoDownload:false,feedUrl:core.FEED};
  let state={phase:'idle',message:'Ready to check for updates.',currentVersion:app.getVersion(),latestVersion:'',percent:0};
  const configFile=path.join(app.getPath('userData'),'app-updates.json');
@@ -13,7 +15,7 @@ function setup({kind,name,parent}){
   if(!config.enabled)return emit({phase:'disabled',message:'Update checks are disabled.'});
   const previous=info,previousDownload=downloaded;
   busy=true;info=undefined;downloaded='';emit({phase:'checking',message:'Checking for updates…',latestVersion:'',percent:0});
-  try{info=core.select(await core.readFeed(net.fetch.bind(net),config.feedUrl),kind,app.getVersion());emit({phase:info.available?'available':'current',message:info.available?'A new version is available.':'You have the latest published version.',latestVersion:info.version,notes:info.notes});
+  try{info=core.select(await core.readFeed(transport,config.feedUrl),kind,app.getVersion());emit({phase:info.available?'available':'current',message:info.available?'A new version is available.':'You have the latest published version.',latestVersion:info.version,notes:info.notes});
    if(!info.available||previous?.sha256!==info.sha256)await fs.rm(pendingFile,{force:true});
    if(info.available&&previousDownload&&previous?.sha256===info.sha256){await core.verify(previousDownload,info);downloaded=previousDownload;emit({phase:'downloaded',message:'A verified update is ready to install.',percent:100});}
    if(info.available&&notifiedVersion!==info.version&&!wizard&&Notification?.isSupported()){
@@ -25,7 +27,7 @@ function setup({kind,name,parent}){
  };
  const get=async()=>{
   if(busy)return state;if(!info?.available)return emit({phase:'error',message:'Check for a newer version first.'});busy=true;downloaded='';emit({phase:'downloading',message:'Downloading and verifying the update…',percent:0});
-  try{downloaded=await core.download(net.fetch.bind(net),info,path.join(app.getPath('userData'),'updates'),percent=>emit({percent}));await fs.writeFile(pendingFile,JSON.stringify(info),{mode:0o600});emit({phase:'downloaded',message:'Update verified. Save your work and choose Install when ready.',percent:100});}
+  try{downloaded=await core.download(transport,info,path.join(app.getPath('userData'),'updates'),percent=>emit({percent}));await fs.writeFile(pendingFile,JSON.stringify(info),{mode:0o600});emit({phase:'downloaded',message:'Update verified. Save your work and choose Install when ready.',percent:100});}
   catch(e){emit({phase:'error',message:e.message});}finally{busy=false;}return state;
  };
  const install=async()=>{

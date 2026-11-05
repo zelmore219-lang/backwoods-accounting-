@@ -6,8 +6,8 @@ async function harness(){
  const app=new EventEmitter();app.getPath=()=>root;app.getVersion=()=> '1.0.4';app.quit=()=>quit++;
  const bytes=Buffer.from('MZverified desktop update');const info={version:'1.0.5',size:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),url:'https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/test/a.exe'};
  const electron={app,BrowserWindow:Window,ipcMain:{handle:(n,f)=>handlers.set(n,f)},net:{fetch:async url=>new Response(url.endsWith('.json')?JSON.stringify({schemaVersion:1,apps:{accounting:{windows:info}}}):bytes)},dialog:{showMessageBox:async()=>({response:answer})},shell:{openPath:async()=>{opened++;return '';}},Notification:{isSupported:()=>false}};
- const module={exports:{}};vm.runInNewContext('(function(require,module,__dirname){'+await fs.readFile(path.join(__dirname,'../connectors/updater/electron.cjs'),'utf8')+'})',{setTimeout,setInterval,clearInterval,process:{platform:'win32'},console})(id=>id==='electron'?electron:id==='./core.cjs'?core:require(id),module,path.join(__dirname,'../connectors/updater'));
- const updater=module.exports.setup({kind:'accounting',name:'Accounting',parent:()=>undefined});await updater.open();
+ const module={exports:{}};vm.runInNewContext('(function(require,module,__dirname){'+await fs.readFile(path.join(__dirname,'../connectors/updater/electron.cjs'),'utf8')+'})',{setTimeout,setInterval,clearInterval,process:{platform:'win32'},console})(id=>id==='electron'?electron:id==='./core.cjs'?core:id==='./electron-transport.cjs'?require('../connectors/updater/electron-transport.cjs'):require(id),module,path.join(__dirname,'../connectors/updater'));
+ const updater=module.exports.setup({kind:'accounting',name:'Accounting',parent:()=>undefined,fetch:electron.net.fetch});await updater.open();
  const invoke=(action,value,event)=>handlers.get('backwoods:update-'+action)(event||{sender:win.webContents,senderFrame:win.webContents.mainFrame},value);
  return {root,win,invoke,opened:()=>opened,quit:()=>quit,confirm:()=>answer=0,close:async()=>{app.emit('before-quit');await fs.rm(root,{recursive:true,force:true});}};
 }
