@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 SCRIPTS=Path(__file__).resolve().parents[1]/'scripts'
 sys.path.insert(0,str(SCRIPTS))
-from publish_updates import publish,release
+from publish_updates import publish,release,create_release
 from build_update_release import build
 
 class UpdateReleaseTests(unittest.TestCase):
@@ -27,6 +27,12 @@ class UpdateReleaseTests(unittest.TestCase):
         draft={'tag_name':'test','draft':True,'assets':[]}
         with patch('publish_updates.subprocess.check_output',return_value=json.dumps([draft])):
             self.assertEqual(release('test'),draft)
+    def test_new_draft_uses_creation_response_without_listing_race(self):
+        draft={'id':123,'tag_name':'test','draft':True,'assets':[]}
+        with patch('publish_updates.subprocess.check_output',return_value=json.dumps(draft)) as command:
+            self.assertEqual(create_release('test','abc','Title','Notes'),draft)
+            self.assertEqual(command.call_count,1)
+            self.assertEqual(json.loads(command.call_args.kwargs['input'])['tag_name'],'test')
     def test_reserved_feed_tag_cannot_be_used_for_package_builds(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaisesRegex(ValueError,'versioned'):build('app-updates',Path(directory))

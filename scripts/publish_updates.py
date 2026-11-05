@@ -22,6 +22,11 @@ def release(tag):
             if value['tag_name']==tag:return value
         if len(values)<100:return None
         page+=1
+def create_release(tag,target,title,notes):
+    # Use the creation response directly: newly created drafts may not appear
+    # in the release listing immediately.
+    payload={'tag_name':tag,'target_commitish':target,'name':title,'body':notes,'draft':True,'prerelease':True}
+    return json.loads(subprocess.check_output(['gh','api','--method','POST',f'repos/{REPO}/releases','--input','-'],input=json.dumps(payload),text=True))
 def verify_assets(value,files):
     assets={a['name']:a for a in value['assets']}
     for p in files:
@@ -55,8 +60,7 @@ def publish(tag,directory):
     files=[*packages,directory/'backwoods-updates.json',directory/'SHA256SUMS.txt']
     current=release(tag)
     if current is None:
-        gh('release','create',tag,'--target',feed['sourceCommit'],'--title','Backwoods app updates '+tag,'--notes-file',str(directory/'RELEASE_NOTES.md'),'--draft','--prerelease')
-        current=release(tag)
+        current=create_release(tag,feed['sourceCommit'],'Backwoods app updates '+tag,(directory/'RELEASE_NOTES.md').read_text())
     existing={a['name']:a for a in current['assets']}
     for p in files:
         if p.name in existing:
@@ -66,7 +70,7 @@ def publish(tag,directory):
     verify_assets(release(tag),files)
     gh('release','edit',tag,'--draft=false','--prerelease','--latest=false')
     channel=release('app-updates')
-    if channel is None:gh('release','create','app-updates','--target',feed['sourceCommit'],'--title','Backwoods automatic update feed','--notes','Public update metadata for Main, Vendor and Business Accounting. Versioned packages are linked from backwoods-updates.json.','--draft','--prerelease')
+    if channel is None:channel=create_release('app-updates',feed['sourceCommit'],'Backwoods automatic update feed','Public update metadata for Main, Vendor and Business Accounting. Versioned packages are linked from backwoods-updates.json.')
     gh('release','upload','app-updates',str(directory/'backwoods-updates.json'),'--clobber')
     verify_assets(release('app-updates'),[directory/'backwoods-updates.json'])
     gh('release','edit','app-updates','--draft=false','--prerelease','--latest=false')
