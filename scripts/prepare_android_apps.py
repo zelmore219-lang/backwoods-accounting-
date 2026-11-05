@@ -10,8 +10,8 @@ PLUGINS={'@capacitor/core':'7.6.10','@capacitor/android':'7.6.10','@capacitor/ap
 
 def prepare():
     for kind,name,app_id,version,code in [
-        ('main','Backwoods Brew Connected','com.backwoodsbrew.main.connected','8.2.2',80202),
-        ('vendor','Backwoods Vendor Connected','com.backwoodsbrew.vendor.connected','4.1.2',40102),
+        ('main','Backwoods Brew Connected','com.backwoodsbrew.main.connected','8.2.3',80203),
+        ('vendor','Backwoods Vendor Connected','com.backwoodsbrew.vendor.connected','4.1.3',40103),
     ]:
         folder=ROOT/'android-apps'/kind
         folder.mkdir(parents=True,exist_ok=True)

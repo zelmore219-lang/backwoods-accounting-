@@ -248,17 +248,58 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['data'])
           && request.resource.data.data is string
           && request.resource.data.data.size() <= 320000;
-        allow update, delete: if false;
+        allow update: if false;
+        allow delete: if owner() && validSource() && generation != get(/databases/$(database)/documents/businessAccounting/$(ownerUid)/sources/$(source)).data.generation;
       }
     }
-    match /businessAccounting/{ownerUid}/settings/service {
-      allow read: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner());
-      allow create, update: if signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner())
-        && request.resource.data.keys().hasOnly(['origin','updatedAt'])
-        && request.resource.data.origin is string
-        && request.resource.data.origin.matches('https://[a-zA-Z0-9.-]+(:[0-9]+)?')
-        && request.resource.data.updatedAt is string;
+    
+    // Installed Windows/Android engines share one compressed accounting ledger.
+    // No Cloud Functions, Firebase Hosting, external host, or billing upgrade.
+    match /businessAccounting/{ownerUid}/ledger/state {
+      function ledgerOwner() {
+        return signedIn() && request.auth.uid == ownerUid
+          && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner());
+      }
+      function leaseOnlyChange() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lockedBy','lockedAt']);
+      }
+      function validBook() {
+        let d = request.resource.data;
+        return d.keys().hasOnly(['ledgerId','generation','sha256','sqliteSha256','chunkCount','bytes','rawBytes','codec','lockedBy','lockedAt','previousGeneration','previousChunkCount'])
+          && ((!('generation' in d) && d.keys().hasOnly(['lockedBy','lockedAt']))
+            || (d.ledgerId is string && d.ledgerId.matches('[a-f0-9-]{36}')
+              && d.generation is string && d.generation.matches('[a-f0-9-]{36}')
+              && d.sha256 is string && d.sha256.matches('[a-f0-9]{64}')
+              && d.sqliteSha256 is string && d.sqliteSha256.matches('[a-f0-9]{64}')
+              && d.codec == 'zlib-sqlite-v1'
+              && d.chunkCount is int && d.chunkCount >= 1 && d.chunkCount <= 280
+              && d.bytes is int && d.bytes > (d.chunkCount-1)*240000 && d.bytes <= d.chunkCount*240000 && d.bytes <= 67108864
+              && d.rawBytes is int && d.rawBytes > 0 && d.rawBytes <= 67108864
+              && d.previousGeneration is string && (d.previousGeneration == '' || d.previousGeneration.matches('[a-f0-9-]{36}'))
+              && d.previousChunkCount is int && d.previousChunkCount >= 0 && d.previousChunkCount <= 280));
+      }
+      allow read: if ledgerOwner();
+      allow create: if ledgerOwner() && validBook()
+        && request.resource.data.lockedBy is string && request.resource.data.lockedBy.matches('[a-f0-9-]{36}')
+        && request.resource.data.lockedAt == request.time;
+      allow update: if ledgerOwner() && validBook()
+        && request.resource.data.lockedBy is string
+        && (request.resource.data.lockedBy == '' || request.resource.data.lockedBy.matches('[a-f0-9-]{36}'))
+        && request.resource.data.lockedAt == request.time
+        && ((resource.data.lockedBy != '' && request.resource.data.lockedBy == resource.data.lockedBy)
+          || (leaseOnlyChange() && (request.resource.data.lockedBy == '' || resource.data.lockedBy == '' || resource.data.lockedAt < request.time-duration.value(600,'s'))));
       allow delete: if false;
+      match /generations/{generation}/chunks/{chunk} {
+        allow read: if ledgerOwner();
+        allow create: if ledgerOwner() && generation.matches('[a-f0-9-]{36}') && chunk.matches('[0-9]{4}')
+          && request.resource.data.keys().hasOnly(['data']) && request.resource.data.data is string && request.resource.data.data.size() <= 320000
+          && get(/databases/$(database)/documents/businessAccounting/$(ownerUid)/ledger/state).data.lockedBy != ''
+          && get(/databases/$(database)/documents/businessAccounting/$(ownerUid)/ledger/state).data.lockedAt > request.time-duration.value(600,'s');
+        allow update: if false;
+        allow delete: if ledgerOwner()
+          && generation != get(/databases/$(database)/documents/businessAccounting/$(ownerUid)/ledger/state).data.get('generation','')
+          && generation != get(/databases/$(database)/documents/businessAccounting/$(ownerUid)/ledger/state).data.get('previousGeneration','');
+      }
     }
     // END AUTOMATIC ACCOUNTING ADDITION
 

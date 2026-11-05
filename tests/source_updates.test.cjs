@@ -66,7 +66,9 @@ test('unrecognized symbolic profile data is rejected without modifying its sourc
 });
 test('source connector writes a redacted financial snapshot and survives window cleanup',async()=>{
   const folder=fs.mkdtempSync(path.join(os.tmpdir(),'backwoods-feed-test-'));const app=new EventEmitter();let interval,handler;
-  const contents=Object.assign(new EventEmitter(),{id:7,getURL:()=> 'file:///connected/index.html',executeJavaScript:async()=>({schemaVersion:1,app:'Test source',data:{orders:[{id:'o1',amount:10,password:'not-financial'}],users:[{accessToken:'not-financial'}]}})});
+  const packet={schemaVersion:1,app:'Test source',data:{orders:[{id:'o1',amount:10,password:'not-financial'}],users:[{accessToken:'not-financial'}]}};
+  const sourceWindow={__bwAccountingCloudContext:()=>({uid:'owner',auth:{currentUser:{uid:'owner'}}}),__bwAccountingSnapshot:()=>packet};
+  const contents=Object.assign(new EventEmitter(),{id:7,getURL:()=> 'file:///connected/index.html',executeJavaScript:async script=>vm.runInNewContext(script,{window:sourceWindow})});
   const win=new EventEmitter();win.id=1;win.webContents=contents;win.isDestroyed=()=>false;
   const sandbox={require:n=>n==='electron'?{app,ipcMain:{handle:(_name,fn)=>handler=fn}}:n==='./business-accounting-config.json'?{source:'vendor'}:require(n),
     process:{platform:'win32',pid:123,env:{LOCALAPPDATA:folder}},setInterval:fn=>{interval=fn;return 1;},clearInterval:()=>{},URL,Date,Map,Set};
@@ -77,6 +79,7 @@ test('source connector writes a redacted financial snapshot and survives window 
     assert.equal(payload.data.orders[0].amount,10);assert(!('password' in payload.data.orders[0]));assert(!('accessToken' in payload.data.users[0]));
     assert(payload.exportedAt);const status=await handler({sender:contents});assert(status.sentAt);
     const before=fs.readFileSync(target);await interval();assert.deepEqual(fs.readFileSync(target),before);
+    sourceWindow.__bwAccountingCloudContext=()=>null;packet.data.orders[0].amount=99;await interval();assert.deepEqual(fs.readFileSync(target),before);
     win.webContents=null;assert.doesNotThrow(()=>win.emit('closed'));
   }finally{fs.rmSync(folder,{recursive:true,force:true});}
 });
@@ -92,7 +95,7 @@ test('main export uses native ledger settings without exporting credentials or m
   const script=fs.readFileSync(path.join(ROOT,'scripts/build_connected_apps.py'),'utf8');
   const hook=/MAIN_HOOK=r'''([\s\S]*?)'''/.exec(script)[1];
   const native={accounts:[],orders:[],invoices:[{id:'vendor-copy',sourceSystem:'vendor-ordering'}],settings:{nativeSetting:42,privateSetting:'not exported'}};
-  const sandbox={window:{},t:false,a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
+  const sandbox={window:{dispatchEvent:()=>{}},e:{useEffect:fn=>fn()},Event,t:false,a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
   const before=JSON.stringify(native);vm.runInNewContext(hook,sandbox);const packet=sandbox.window.__bwAccountingSnapshot();
   assert(!('settings' in packet.data));assert.equal(JSON.stringify(native),before);
   sandbox.a.active=false;assert.equal(sandbox.window.__bwAccountingSnapshot(),null);

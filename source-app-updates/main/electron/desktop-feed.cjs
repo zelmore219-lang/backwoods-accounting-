@@ -32,13 +32,15 @@ app.on('browser-window-created',(_event,win)=>{
     busy=true;
     try {
       const raw=await win.webContents.executeJavaScript(`(() => {
+        const c=window.__bwAccountingCloudContext?.();
+        if(!c?.auth?.currentUser||c.uid!==c.auth.currentUser.uid)return null;
         return typeof window.__bwAccountingSnapshot==='function' ? window.__bwAccountingSnapshot() : null;
       })()`);
       const packet=accountingOnly(raw);
       if(!packet){state.set(win.webContents.id,{message:'Not sending. Sign in as the owner.'});return;}
       const hash=crypto.createHash('sha256').update(JSON.stringify(packet)).digest('hex');
       // Refresh a heartbeat even if records do not change, so an old receipt is visible.
-      if(hash===lastHash&&Date.now()-lastSent<60000)return;
+      if(hash===lastHash)return;
       await fs.mkdir(feedDir,{recursive:true});
       const dest=path.join(feedDir,source+'.json');
       const temporary=path.join(feedDir,source+'-'+process.pid+'-'+win.id+'.tmp');

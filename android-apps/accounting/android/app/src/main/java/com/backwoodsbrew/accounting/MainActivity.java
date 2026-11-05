@@ -26,28 +26,46 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
+import com.chaquo.python.Python;
+import com.chaquo.python.android.AndroidPlatform;
+import org.json.JSONObject;
 import androidx.appcompat.app.AppCompatActivity;
 
 /** Company-ledger client. Never starts a second, unrelated ledger on the phone. */
 public class MainActivity extends AppCompatActivity {
     private WebView browser;
     private String origin;
-    private String pendingFirebaseToken;
+
     private ValueCallback<Uri[]> fileCallback;
     private TextView status;
+    private String downloadUrl,downloadCookies;
+    private static final int SAVE_REQUEST=121;
     private static final int FILE_REQUEST = 120;
     private final int forest = Color.rgb(21,62,53);
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
         getWindow().setStatusBarColor(forest);
+        SecureStorage.initialize(getApplicationContext());
         origin=""; setup();
     }
+
+    private void copyProgramAssets() throws Exception {
+        java.io.File directory=new java.io.File(getFilesDir(),"accounting-program/web");
+        if(!directory.exists()&&!directory.mkdirs())throw new Exception("Could not prepare the accounting program.");
+        for(String name:getAssets().list("accounting-web")){
+            try(java.io.InputStream input=getAssets().open("accounting-web/"+name);java.io.OutputStream output=new java.io.FileOutputStream(new java.io.File(directory,name))){
+                byte[] data=new byte[8192];int n;while((n=input.read(data))!=-1)output.write(data,0,n);
+            }
+        }
+    }
+    private boolean sameLocalOrigin(String value) {return EngineOrigin.contains(origin,value);}
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private LinearLayout column() {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setFitsSystemWindows(true);
         layout.setBackgroundColor(Color.rgb(245,245,239));
         return layout;
     }
@@ -63,8 +81,8 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout layout=column();layout.setPadding(dp(24),dp(36),dp(24),dp(24));
         layout.addView(text("BACKWOODS",17));layout.addView(text("Business Accounting",29));
         layout.addView(text("Sign in to your company",21));
-        layout.addView(text("Use the same owner Firebase account as your retail and wholesale apps. Your accounting connection is found automatically.",16));
-        EditText email=new EditText(this);email.setSingleLine(true);email.setHint("Company email");
+        layout.addView(text("Use the same owner Firebase login as your retail and wholesale apps. Your records sync through Firebase. No server or transfer link is needed.",16));
+        EditText email=new EditText(this);email.setSingleLine(true);email.setHint("Firebase username or company email");
         email.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);layout.addView(email);
         EditText password=new EditText(this);password.setSingleLine(true);password.setHint("Password");
         password.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);layout.addView(password);
@@ -72,20 +90,45 @@ public class MainActivity extends AppCompatActivity {
         Button connect=button("Sign in",null);
         connect.setOnClickListener(view->{
             final String address=email.getText().toString().trim(),secret=password.getText().toString();
-            if(address.isEmpty()||secret.isEmpty()){error.setText("Enter your company email and password.");return;}
+            if(address.isEmpty()||secret.isEmpty()){error.setText("Enter your Firebase username or email and password.");return;}
             connect.setEnabled(false);error.setText("Signing in and finding your company books…");password.setText("");
             new Thread(()->{
                 try{
-                    FirebaseDiscovery.Company company=FirebaseDiscovery.signIn(address,secret);
-                    runOnUiThread(()->{if(isDestroyed())return;origin=company.origin;pendingFirebaseToken=company.idToken;
-                        getPreferences(MODE_PRIVATE).edit().putString("firebase_company_origin",origin).apply();openBooks();});
+                    copyProgramAssets();
+                    if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
+                    Python python=Python.getInstance();
+                    int port=python.getModule("android_boot").callAttr("start",getFilesDir().getAbsolutePath()).toInt();
+                    JSONObject result=new JSONObject(python.getModule("android_boot").callAttr("sign_in",address,secret).toString());
+                    final String local=EngineOrigin.local(port);
+                    final String bootstrap=result.getString("bootstrap"),session=result.optString("sessionToken","");
+                    runOnUiThread(()->{if(isDestroyed())return;origin=local;
+                        CookieManager cookies=CookieManager.getInstance();cookies.setAcceptCookie(true);
+                        cookies.setCookie(origin,"bw_bootstrap="+bootstrap+"; Path=/; HttpOnly; SameSite=Strict");
+                        if(!session.isEmpty())cookies.setCookie(origin,"bw_session="+session+"; Path=/; HttpOnly; SameSite=Strict");
+                        cookies.flush();openBooks();});
                 }catch(Exception problem){runOnUiThread(()->{if(isDestroyed())return;error.setText(problem.getMessage()==null?"Cannot reach Firebase. Check your Internet connection.":problem.getMessage());connect.setEnabled(true);});}
             },"company-sign-in").start();
         });
         layout.addView(connect);
+        Button cached=button("Open this device's saved books",null);
+        cached.setOnClickListener(view->{
+            cached.setEnabled(false);error.setText("Opening private cached books…");
+            new Thread(()->{
+                try{
+                    copyProgramAssets();
+                    if(!Python.isStarted())Python.start(new AndroidPlatform(getApplicationContext()));
+                    Python python=Python.getInstance();
+                    python.getModule("android_boot").callAttr("start",getFilesDir().getAbsolutePath());
+                    JSONObject result=new JSONObject(python.getModule("android_boot").callAttr("local_books").toString());
+                    final String local=EngineOrigin.local(result.getInt("port")),bootstrap=result.getString("bootstrap");
+                    runOnUiThread(()->{if(isDestroyed())return;origin=local;CookieManager cookies=CookieManager.getInstance();cookies.setAcceptCookie(true);cookies.setCookie(origin,"bw_bootstrap="+bootstrap+"; Path=/; HttpOnly; SameSite=Strict");cookies.flush();openBooks();});
+                }catch(Exception problem){runOnUiThread(()->{if(isDestroyed())return;error.setText(problem.getMessage());cached.setEnabled(true);});}
+            },"cached-accounting").start();
+        });
+        layout.addView(cached);
         layout.addView(text("Your records stay together",18));
-        layout.addView(text("Retail and wholesale keep their own books. Business Accounting combines their accounting records with payroll, production costs and business expenses. Your administrator must complete the one-time company cloud setup before the first connection.",14));
-        setContentView(layout);
+        layout.addView(text("Retail and wholesale keep their own books. Business Accounting combines their accounting records with payroll, production costs and business expenses. The first accounting sign-in may ask you to create your business owner account. Firebase permissions must be enabled once for your company.",14));
+        android.widget.ScrollView scroll=new android.widget.ScrollView(this);scroll.setFillViewport(true);scroll.setFitsSystemWindows(true);scroll.addView(layout);setContentView(scroll);
     }
 
     @SuppressWarnings("SetJavaScriptEnabled") private void openBooks() {
@@ -95,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
         bar.addView(button("Print", v -> print()));
         bar.addView(button("Company account", v -> new AlertDialog.Builder(this)
             .setTitle("Sign in to another company?")
-            .setMessage("This signs you out on this phone and clears its cached web data. Company records stay on the accounting server.")
+            .setMessage("This signs you out on this phone and clears its cached web data. Company records stay in Firebase and this app's private data. A different company requires a separate app profile.")
             .setNegativeButton("Cancel",null).setPositiveButton("Change",(d,w) -> {
                 browser.stopLoading(); browser.loadUrl("about:blank"); browser.clearCache(true);
                 browser.clearHistory(); browser.destroy(); browser = null;
@@ -122,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
         browser.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 String url = request.getUrl().toString();
-                if (CompanyOrigin.contains(origin,url)) return false;
+                if (sameLocalOrigin(url)) return false;
                 if ("https".equalsIgnoreCase(request.getUrl().getScheme())) {
                     try { startActivity(new Intent(Intent.ACTION_VIEW,request.getUrl())); }
                     catch (ActivityNotFoundException e) { message("No browser is available."); }
@@ -130,31 +173,28 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
             @Override public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                handler.cancel(); status.setText("Certificate check failed. Ask your administrator to fix the server certificate.");
+                handler.cancel(); status.setText("A secure connection could not be verified.");
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (request.isForMainFrame()) status.setText("Cannot reach the company server. Check its address and your Internet connection.");
+                if (request.isForMainFrame()) status.setText("Could not open the embedded accounting engine. Reopen the app; your private cached records are preserved.");
             }
             @Override public void onPageFinished(WebView view, String url) {
-                if (CompanyOrigin.contains(origin,url)) {
-                    status.setText("Company books · Print saves PDF or sends to your printer");
-                    if(pendingFirebaseToken!=null){
-                        String encoded=org.json.JSONObject.quote(pendingFirebaseToken);pendingFirebaseToken=null;
-                        view.evaluateJavascript("fetch('/api/auth/firebase-login',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Accounting-Request':'1'},body:JSON.stringify({idToken:"+encoded+"})}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Company login failed');location.reload();}).catch(e=>{document.body.textContent=e.message;})",null);
-                    }
+                if (sameLocalOrigin(url)) {
+                    status.setText("Company books · Firebase sync · Print / PDF");
+
                 }
             }
         });
         browser.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result) {
-                if (!CompanyOrigin.contains(origin,url)) { result.cancel(); return true; }
+                if (!sameLocalOrigin(url)) { result.cancel(); return true; }
                 new AlertDialog.Builder(MainActivity.this).setMessage(message)
                     .setPositiveButton("OK",(d,w) -> result.confirm())
                     .setOnCancelListener(d -> result.cancel()).show();
                 return true;
             }
             @Override public boolean onJsConfirm(WebView view,String url,String message,JsResult result) {
-                if (!CompanyOrigin.contains(origin,url)) { result.cancel(); return true; }
+                if (!sameLocalOrigin(url)) { result.cancel(); return true; }
                 new AlertDialog.Builder(MainActivity.this).setMessage(message)
                     .setPositiveButton("Confirm",(d,w) -> result.confirm())
                     .setNegativeButton("Cancel",(d,w) -> result.cancel())
@@ -171,36 +211,47 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         browser.setDownloadListener((url,agent,disposition,mime,length) -> {
-            if (!CompanyOrigin.contains(origin,url)) { message("Download blocked: different server."); return; }
-            new AlertDialog.Builder(this).setTitle("Save company record?")
-                .setMessage("This saves a copy in this phone's Downloads folder. Financial records may contain private information.")
-                .setNegativeButton("Cancel",null).setPositiveButton("Save",(dialog,which) -> {
-                    try {
-                        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-                        String cookies = CookieManager.getInstance().getCookie(url);
-                        if (cookies != null) request.addRequestHeader("Cookie",cookies);
-                        request.addRequestHeader("User-Agent",agent);
-                        request.setMimeType(mime);
-                        String name = android.webkit.URLUtil.guessFileName(url,disposition,mime);
-                        request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS,name);
-                        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                        ((DownloadManager)getSystemService(DOWNLOAD_SERVICE)).enqueue(request);
-                        message("Download started.");
-                    } catch (RuntimeException error) { message("Download unavailable. Print to PDF or use your secure browser."); }
-                }).show();
+            if(!sameLocalOrigin(url)){message("Download blocked: outside this accounting app.");return;}
+            downloadUrl=url;downloadCookies=CookieManager.getInstance().getCookie(url);
+            Intent save=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType(mime==null?"application/octet-stream":mime)
+                .putExtra(Intent.EXTRA_TITLE,android.webkit.URLUtil.guessFileName(url,disposition,mime));
+            try{startActivityForResult(save,SAVE_REQUEST);}catch(ActivityNotFoundException error){message("No file-saving app is available. Use Print to save a PDF.");downloadUrl=null;downloadCookies=null;}
         });
         layout.addView(browser,new LinearLayout.LayoutParams(-1,0,1)); setContentView(layout);
         browser.loadUrl(origin + "/");
     }
 
     private void print() {
-        if (browser == null || !CompanyOrigin.contains(origin,browser.getUrl())) { message("Open a company record first."); return; }
+        if (browser == null || !sameLocalOrigin(browser.getUrl())) { message("Open a company record first."); return; }
         PrintManager manager = (PrintManager)getSystemService(PRINT_SERVICE);
         manager.print("Backwoods company record",browser.createPrintDocumentAdapter("Backwoods company record"),null);
     }
     private void message(String value) { Toast.makeText(this,value,Toast.LENGTH_LONG).show(); }
     @Override protected void onActivityResult(int request,int result,Intent data) {
         super.onActivityResult(request,result,data);
+        if(request==SAVE_REQUEST){
+            final String url=downloadUrl,cookies=downloadCookies;downloadUrl=null;downloadCookies=null;
+            if(result!=RESULT_OK||data==null||data.getData()==null||url==null)return;
+            final Uri destination=data.getData();
+            new Thread(()->{
+                java.net.HttpURLConnection connection=null;
+                try{
+                    if(!sameLocalOrigin(url))throw new Exception("The company account changed before the download.");
+                    connection=(java.net.HttpURLConnection)new java.net.URL(url).openConnection();
+                    connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(15000);connection.setReadTimeout(60000);
+                    if(cookies!=null)connection.setRequestProperty("Cookie",cookies);
+                    if(connection.getResponseCode()!=200)throw new Exception("Download not authorized. Sign in and try again.");
+                    try(java.io.InputStream input=connection.getInputStream();java.io.OutputStream output=getContentResolver().openOutputStream(destination)){
+                        if(output==null)throw new Exception("Could not open the chosen file destination.");
+                        byte[] buffer=new byte[16384];int n;while((n=input.read(buffer))!=-1)output.write(buffer,0,n);
+                    }
+                    runOnUiThread(()->message("Company record saved."));
+                }catch(Exception error){runOnUiThread(()->message(error.getMessage()));}
+                finally{if(connection!=null)connection.disconnect();}
+            },"save-accounting-record").start();
+            return;
+        }
         if (request == FILE_REQUEST && fileCallback != null) {
             fileCallback.onReceiveValue(result == RESULT_OK && data != null && data.getData() != null ? new Uri[]{data.getData()} : null);
             fileCallback = null;

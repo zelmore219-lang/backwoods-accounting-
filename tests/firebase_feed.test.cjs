@@ -14,6 +14,7 @@ function fixture(options={}){
   if(request.method==='GET'){const document=documents.get(url);return {ok:!!document,status:document?200:404,json:async()=>document};}
   const body=JSON.parse(request.body);
   for(const write of body.writes){
+   if(write.delete){documents.delete('https://firestore.googleapis.com/v1/'+write.delete);continue;}
    const key='https://firestore.googleapis.com/v1/'+write.update.name;
    const old=documents.get(key);
    if(write.currentDocument?.exists===false&&old)return {ok:false,status:409};
@@ -46,4 +47,9 @@ test('multi-chunk transport publishes the pointer after immutable chunks',async(
 test('signed-out and non-owner hooks do not transfer data',async()=>{
  const f=fixture();assert.equal(await publish({...f,context:()=>null}),null);
  assert.equal(await publish({...f,snapshot:()=>null}),null);assert.equal(f.calls.length,0);
+});
+test('retired transfer chunks are removed after the next complete snapshot',async()=>{
+ const f=fixture();await publish(f);const old=[...f.documents.keys()].find(k=>k.includes('/chunks/'));
+ f.packet.data.memo='changed retail';await publish(f);assert(!f.documents.has(old));
+ assert.equal([...f.documents.keys()].filter(k=>k.includes('/chunks/')).length,1);
 });

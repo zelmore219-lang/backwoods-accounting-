@@ -1,14 +1,12 @@
-# Revised Android downloads
+# Firebase Spark app downloads
 
-These installable **debug-signed test APKs** replace the earlier manual-connection builds. Android 6+ is required.
+- [Main retail 8.2.3 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Brew-Connected-8.2.3-test.apk)
+- [Vendor wholesale 4.1.3 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Vendor-Connected-4.1.3-test.apk)
+- [Business Accounting 1.0.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Business-Accounting-1.0.2-test.apk)
+- [Windows installers and release checksums](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/firebase-spark-test-1)
 
-- [Main retail 8.2.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Brew-Connected-8.2.2-test.apk)
-- [Vendor wholesale 4.1.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Vendor-Connected-4.1.2-test.apk)
-- [Business Accounting 1.0.1 APK](https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/automatic-accounting-test-1/Backwoods-Business-Accounting-1.0.1-test.apk)
-- [Windows installers and all downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/automatic-accounting-test-1)
+The accounting APK now contains the full engine and shares books through Firestore. It does not ask for a server/transfer URL. No host or Blaze upgrade is required. Publish the reviewed [merged Firebase rules](../firebase/firestore.rules) once, then follow [Spark setup](../firebase/SETUP.md). Live company operation has not been verified by this build.
 
-Sign in normally to the source apps as the Firebase owner. Their accounting copies send automatically while the apps are open. Business Accounting uses Firebase sign-in and company discovery; **no transfer URL entry** is required.
+Accounting requires Android 7+ with ARM64/x86-64. Main/vendor target Android 6+. These are debug-signed test builds; the signing identity matches the earlier connected test APKs, allowing an in-place update of those matching identities. Unknown original APKs use separate profiles. Keep originals and backups until records and source totals match. Never uninstall to resolve a signing conflict without first preserving data.
 
-**Not activated yet:** one-time Firestore rules, company ledger linking and shared HTTPS service deployment. See [setup](../firebase/SETUP.md). Installing the APKs alone does not deploy those pieces. Cloud tests used controlled Firebase responses; no live company or physical-device test has been completed.
-
-[SHA256SUMS.txt](SHA256SUMS.txt) and [manifest.json](manifest.json) record each built artifact's hash, size, version and signing certificate. Keep old apps and backups until records match. Source editions have separate Android identities from unknown originals. Different signing keys cannot update these test APKs in place; never uninstall without verifying backups/sync. No private signing key is committed.
+[manifest.json](manifest.json) and [SHA256SUMS.txt](SHA256SUMS.txt) record the actual built files. Physical-device testing, live Firebase reconciliation and real printing remain necessary.

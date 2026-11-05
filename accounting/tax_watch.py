@@ -134,13 +134,24 @@ def review_change(ledger,value):
 def monitor(app):
     from datetime import datetime,timezone,timedelta
     while not app.stop.is_set():
-        ledger=app.ledger()
         try:
-            states=selected_states(ledger)
-            if states:
-                for state in ['US']+states:
+            with app.write_lock:
+                ledger=app.ledger()
+                try:
+                    states=selected_states(ledger);due=[]
+                    for state in (['US']+states if states else []):
+                        r=ledger.db.execute('SELECT checked_at FROM tax_sources WHERE state=?',(state,)).fetchone()
+                        if not r or not r[0] or datetime.fromisoformat(r[0])<datetime.now(timezone.utc)-timedelta(hours=24):due.append(state)
+                finally:ledger.close()
+            if due:
+                for state in due:
                     if app.stop.is_set():break
-                    r=ledger.db.execute('SELECT checked_at FROM tax_sources WHERE state=?',(state,)).fetchone()
-                    if not r or not r[0] or datetime.fromisoformat(r[0])<datetime.now(timezone.utc)-timedelta(hours=24):check_source(ledger,state)
-        finally:ledger.close()
+                    with app.shared.mutation():
+                        ledger=app.ledger()
+                        try:
+                            r=ledger.db.execute('SELECT checked_at FROM tax_sources WHERE state=?',(state,)).fetchone()
+                            if not r or not r[0] or datetime.fromisoformat(r[0])<datetime.now(timezone.utc)-timedelta(hours=24):check_source(ledger,state)
+                        finally:ledger.close()
+        except Exception as error:
+            app.firebase_status={'connected':False,'message':'Tax checks will retry: '+str(error)}
         app.stop.wait(60)

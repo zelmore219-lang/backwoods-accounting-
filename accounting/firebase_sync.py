@@ -10,13 +10,15 @@ import os
 from pathlib import Path
 import re
 import time
+from importlib.resources import files
 from urllib.error import HTTPError,URLError
 from urllib.parse import urlencode
 from urllib.request import Request,build_opener,HTTPRedirectHandler
 from .ledger import AccountingError,now
 from .payroll_provider import SecretStore
 
-CONFIG=json.loads((Path(__file__).with_name('firebase-config.json')).read_text())
+_config=Path(__file__).with_name('firebase-config.json')
+CONFIG=json.loads(_config.read_text() if _config.is_file() else files('accounting').joinpath('firebase-config.json').read_text())
 SCHEMA='CREATE TABLE IF NOT EXISTS firebase_link(uid TEXT PRIMARY KEY,user_id TEXT NOT NULL UNIQUE,email TEXT NOT NULL);'
 
 class NoRedirect(HTTPRedirectHandler):
@@ -36,12 +38,18 @@ def request(url,value=None,token=None,form=False):
             return json.loads(body)
     except HTTPError as error:
         if error.code==404:return None
+        if error.code==429:raise AccountingError('Firebase Spark quota is temporarily exhausted. Keep your saved records and refresh after quota is available before retrying an unconfirmed posting.') from None
+        if error.code in {409,412}:raise AccountingError('Company records changed on another device. Refresh and retry the pending action.') from None
         raise AccountingError('Firebase access denied or unavailable. Check the company sign-in and deployed accounting rules ('+str(error.code)+').') from None
     except (URLError,TimeoutError):raise AccountingError('Firebase is unreachable. Saved records will retry when the connection returns.') from None
 
 class Vault(SecretStore):
     def __init__(self,directory):self.path=Path(directory)/'firebase-connection.dpapi'
     def read(self):
+        if os.environ.get('BACKWOODS_ANDROID')=='1':
+            from java import jclass
+            data=str(jclass('com.backwoodsbrew.accounting.SecureStorage').readSecret('firebase'))
+            return json.loads(data) if data else None
         token=os.environ.get('BACKWOODS_FIREBASE_REFRESH_TOKEN')
         uid=os.environ.get('BACKWOODS_FIREBASE_UID')
         if token and uid:return {'refreshToken':token,'uid':uid}
@@ -49,6 +57,9 @@ class Vault(SecretStore):
         if os.name!='nt':raise AccountingError('Use protected Firebase environment bindings on the hosted service')
         return json.loads(self.dpapi(self.path.read_bytes(),False))
     def save(self,value):
+        if os.environ.get('BACKWOODS_ANDROID')=='1':
+            from java import jclass
+            jclass('com.backwoodsbrew.accounting.SecureStorage').saveSecret('firebase',json.dumps(value));return
         if os.name=='nt':return super().save(value)
         configured=self.read()
         if not configured or configured['uid']!=value['uid']:
@@ -61,6 +72,8 @@ class Firebase:
         self.vault=vault or Vault(directory);self.transport=transport
         self.connection=None;self.token=None;self.expires=0
     def sign_in(self,email,password):
+        email=str(email).strip()
+        if '@' not in email:email=email.lower()+'@'+CONFIG['projectId']+'.firebaseapp.com'
         result=self.transport('https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key='+CONFIG['apiKey'],{'email':email,'password':password,'returnSecureToken':True})
         if not result or not result.get('localId') or not result.get('refreshToken'):raise AccountingError('Firebase did not confirm the company account')
         return result

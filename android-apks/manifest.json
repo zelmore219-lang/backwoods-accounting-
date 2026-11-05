@@ -1,38 +1,47 @@
 [
   {
     "app": "main",
-    "file": "Backwoods-Brew-Connected-8.2.2-test.apk",
-    "bytes": 12662782,
-    "sha256": "9d07c401c638a570eca72babb0afa9a90807d3137e992a224ffe61f0a62dfe01",
+    "file": "Backwoods-Brew-Connected-8.2.3-test.apk",
+    "bytes": 12687235,
+    "sha256": "6cc80827f6bde18395d07149b7b492877ed689eb0bd1309955d8b2232d5c44fe",
     "buildType": "debug",
-    "signatureVerification": "passed",
-    "package": "package: name='com.backwoodsbrew.main.connected' versionCode='80202' versionName='8.2.2' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
+    "package": "package: name='com.backwoodsbrew.main.connected' versionCode='80203' versionName='8.2.3' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
     "signingCertificate": "Signer #1 certificate SHA-256 digest: 7b999434a5dc62fcff6e845d27d6e64d2f8fd0ad70a10645d4d3322ae0d0fb8f",
-    "deviceTested": false,
-    "liveFirebaseTested": false
+    "signatureVerification": "passed",
+    "sourceContentVerification": "passed",
+    "physicalDeviceTested": false,
+    "liveFirebaseTested": false,
+    "externalHostRequired": false,
+    "firebasePlan": "Spark"
   },
   {
     "app": "vendor",
-    "file": "Backwoods-Vendor-Connected-4.1.2-test.apk",
-    "bytes": 15500944,
-    "sha256": "103c4c1f0c23cffd81ab4cd652270fd3b5a3b919353af25864334095eef1aecf",
+    "file": "Backwoods-Vendor-Connected-4.1.3-test.apk",
+    "bytes": 16024341,
+    "sha256": "4873bf35edca4d9cd6d4d569dcbba78b8b9b36504db2fef3c574a500429a9a31",
     "buildType": "debug",
-    "signatureVerification": "passed",
-    "package": "package: name='com.backwoodsbrew.vendor.connected' versionCode='40102' versionName='4.1.2' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
+    "package": "package: name='com.backwoodsbrew.vendor.connected' versionCode='40103' versionName='4.1.3' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
     "signingCertificate": "Signer #1 certificate SHA-256 digest: 7b999434a5dc62fcff6e845d27d6e64d2f8fd0ad70a10645d4d3322ae0d0fb8f",
-    "deviceTested": false,
-    "liveFirebaseTested": false
+    "signatureVerification": "passed",
+    "sourceContentVerification": "passed",
+    "physicalDeviceTested": false,
+    "liveFirebaseTested": false,
+    "externalHostRequired": false,
+    "firebasePlan": "Spark"
   },
   {
     "app": "accounting",
-    "file": "Backwoods-Business-Accounting-1.0.1-test.apk",
-    "bytes": 10361832,
-    "sha256": "5eac1b97b1f5f12c440823989e7de239128f45a8f97298cbd2911605f0db69a1",
+    "file": "Backwoods-Business-Accounting-1.0.2-test.apk",
+    "bytes": 47711477,
+    "sha256": "a0253db8aec338c48da8eff7a69eb8780198afb9ee01118015d940d604309b3c",
     "buildType": "debug",
-    "signatureVerification": "passed",
-    "package": "package: name='com.backwoodsbrew.accounting' versionCode='10001' versionName='1.0.1' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
+    "package": "package: name='com.backwoodsbrew.accounting' versionCode='10002' versionName='1.0.2' platformBuildVersionName='15' platformBuildVersionCode='35' compileSdkVersion='35' compileSdkVersionCodename='15'",
     "signingCertificate": "Signer #1 certificate SHA-256 digest: 7b999434a5dc62fcff6e845d27d6e64d2f8fd0ad70a10645d4d3322ae0d0fb8f",
-    "deviceTested": false,
-    "liveFirebaseTested": false
+    "signatureVerification": "passed",
+    "sourceContentVerification": "passed",
+    "physicalDeviceTested": false,
+    "liveFirebaseTested": false,
+    "externalHostRequired": false,
+    "firebasePlan": "Spark"
   }
 ]

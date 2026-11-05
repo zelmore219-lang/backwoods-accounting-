@@ -15,12 +15,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Install pinned tools and portable Python
         shell: pwsh
         run: |
@@ -42,6 +48,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Source update tests failed' }
           node tests/firebase_feed.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Firebase transfer tests failed' }
+      - name: Validate merged permissions with the Firestore emulator
+        shell: pwsh
+        run: |
+          npm ci --prefix tests/firebase-rules --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw 'Rule-test dependencies failed' }
+          & tests/firebase-rules/node_modules/.bin/firebase.cmd emulators:exec --only firestore --project demo-backwoods-accounting --config tests/firebase-rules/firebase.json 'node tests/firebase-rules/rules.test.cjs'
+          if ($LASTEXITCODE -ne 0) { throw 'Firestore permissions checks failed' }
       - name: Build all three Windows installers
         shell: pwsh
         run: |
@@ -76,7 +89,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = 'automatic-accounting-test-1'
+          $tag = 'firebase-spark-test-1'
           $assets = @(Get-ChildItem dist/test-release -File | ForEach-Object { $_.FullName })
           gh release view $tag --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -eq 0) {
@@ -84,6 +97,6 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
             gh release edit $tag --draft=false --prerelease --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
           } else {
-            gh release create $tag @assets --target $env:GITHUB_SHA --prerelease --title 'Backwoods automatic accounting - test builds' --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
+            gh release create $tag @assets --target $env:GITHUB_SHA --prerelease --title 'Backwoods Firebase Spark - all three apps' --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }

@@ -188,6 +188,13 @@ class HttpTests(unittest.TestCase):
     def test_cross_origin_and_missing_session_rejected(self):
         with self.assertRaises(urllib.error.HTTPError) as err:self.post('/api/settings',{'company':'Intruder'},{'Origin':'https://example.com'})
         self.assertEqual(err.exception.code,403)
+    def test_native_bootstrap_is_not_disclosed_to_another_loopback_client(self):
+        self.app.native_private_bootstrap=True
+        response=urllib.request.urlopen(self.base+'/')
+        self.assertIsNone(response.headers.get('Set-Cookie'));response.read()
+        req=urllib.request.Request(self.base+'/api/auth/login',json.dumps({'username':'owner','password':'test-owner-passphrase-2026'}).encode(),{'Content-Type':'application/json','X-Accounting-Request':'1'})
+        with self.assertRaises(urllib.error.HTTPError) as error:urllib.request.urlopen(req)
+        self.assertEqual(error.exception.code,403)
         with self.assertRaises(urllib.error.HTTPError) as err:urllib.request.urlopen(self.base+'/api/state')
         self.assertEqual(err.exception.code,403)
     def test_optional_https_proxy_origin_and_secure_cookies(self):

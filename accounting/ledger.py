@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS lines(id INTEGER PRIMARY KEY,entry_id INTEGER NOT NUL
  account TEXT NOT NULL REFERENCES accounts(code),debit INTEGER NOT NULL CHECK(debit>=0),
  credit INTEGER NOT NULL CHECK(credit>=0),CHECK(NOT(debit>0 AND credit>0)));
 CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT NOT NULL,action TEXT NOT NULL,detail TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS processed_feeds(source TEXT NOT NULL,fingerprint TEXT NOT NULL,PRIMARY KEY(source,fingerprint));
+CREATE TABLE IF NOT EXISTS document_history(source TEXT NOT NULL,source_id TEXT NOT NULL,revision INTEGER NOT NULL,
+ payload TEXT NOT NULL,batch_id TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(source,source_id,revision));
 CREATE TABLE IF NOT EXISTS attachments(id TEXT PRIMARY KEY,source TEXT NOT NULL,source_id TEXT NOT NULL,
  name TEXT NOT NULL,mime TEXT NOT NULL,content BLOB NOT NULL,created_at TEXT NOT NULL,
  FOREIGN KEY(source,source_id) REFERENCES documents(source,source_id));
@@ -238,7 +241,18 @@ class Ledger:
                 self.db.rollback()
                 return counts
             batch = str(uuid.uuid4())
-            self.db.execute("INSERT INTO batches VALUES(?,?,?,?,?,?,?,?,?)", (batch, source, now(), snapshot_at, str(filename)[:200], canonical(payload), counts["added"], counts["changed"], counts["duplicates"]))
+            stored=payload
+            if isinstance(payload,dict) and payload.get('type')=='business-accounting-feed':
+                data=payload.get('data',payload)
+                # Preserve the financial record versions, not another entire
+                # cumulative app backup for every sale. This bounds Spark usage
+                # without discarding posting/reversal or source-record history.
+                stored={'type':payload['type'],'schemaVersion':payload.get('schemaVersion',1),'app':payload.get('app',''),
+                        'exportedAt':payload.get('exportedAt'),'storage':'financial-record-history-v1',
+                        'snapshotSha256':hashlib.sha256(canonical(payload).encode()).hexdigest(),'records':len(documents),
+                        'changedRecords':[doc['id'] for doc,_,_,_ in pending],
+                        'data':{'generalLedger':[]} if 'generalLedger' in data else {}}
+            self.db.execute("INSERT INTO batches VALUES(?,?,?,?,?,?,?,?,?)", (batch, source, now(), snapshot_at, str(filename)[:200], canonical(stored), counts["added"], counts["changed"], counts["duplicates"]))
             for account in accounts:
                 self.db.execute("INSERT OR IGNORE INTO accounts VALUES(?,?,?)", account)
             for sid,cost in overrides:
@@ -250,6 +264,8 @@ class Ledger:
                 self.db.execute('INSERT INTO assets VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at',(asset['id'],canonical(asset),now()))
             for doc, digest, old, financial_change in pending:
                 revision = old["revision"] + 1 if old else 1
+                if old:self.db.execute('INSERT OR IGNORE INTO document_history VALUES(?,?,?,?,?,?)',(source,doc['id'],old['revision'],old['payload'],old['batch_id'],now()))
+                self.db.execute('INSERT INTO document_history VALUES(?,?,?,?,?,?)',(source,doc['id'],revision,canonical(doc),batch,now()))
                 if old and financial_change:
                     prior = self.db.execute("SELECT e.id,e.date FROM entries e WHERE e.source=? AND e.source_id=? AND e.reversal_of IS NULL AND NOT EXISTS(SELECT 1 FROM entries reversal WHERE reversal.reversal_of=e.id)", (source, doc["id"])).fetchall()
                     for entry in prior:

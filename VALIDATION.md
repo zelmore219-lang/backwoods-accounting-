@@ -2,11 +2,14 @@
 
 This records evidence from the current cloud build. It is not a claim of Windows deployment, live bank settlement, payroll-provider approval, or tax compliance.
 
-## Verified
+## Current Spark build
 
-- The current update passes **73 Python accounting tests**, **12 Node source-update/desktop-origin tests**, **4 Node Firebase snapshot tests**, and **3 Android company-origin unit tests**. The added HTTP test simulates Host forwarding from a TLS terminator; it does not test a live TLS deployment.
-- Main 8.2.2 and Vendor 4.1.2 complete connected Windows editions were packaged and NSIS installers generated. Profile-copy fixtures verify that original bytes remain unchanged and running/ambiguous/unsafe profiles are rejected. These are fixture checks, not real Windows upgrades.
-- All three Android debug APKs compiled and passed `apksigner verify`; package identities, versions and SHA-256 hashes are recorded in `android-apks/manifest.json`. They have not been run on a physical device or emulator. Business Accounting signs into Firebase and discovers its HTTPS service without asking for a URL; no shared accounting server has been deployed. Firebase snapshot upload/import and company discovery are implemented with controlled-response tests; live deployment and rule enforcement remain unverified.
+- **87 Python tests passed** in the cloud workspace, including two-device ledger convergence, writer exclusion, checksummed generation rejection, failed-commit rollback, durable payroll intent before external writes, repeated-expense request deduplication, session revocation, native bootstrap privacy and source-history compaction.
+- **12 Node source/desktop checks** and **five Node Firebase transport checks** pass. Firebase transport tests use controlled responses; they are not a live company integration test.
+- The full accounting engine compiled into the Android APK with Chaquopy 16.1.0 / Python 3.12. It no longer needs an external accounting host. Three Android origin tests constrain browser navigation to the private embedded engine. Physical Android execution has not yet been performed.
+- The complete merged rules preserve the supplied baseline permission logic and add private active-owner Spark accounting paths. The GitHub release workflow runs real Firestore-emulator checks before publication. No live Firebase rules, billing setting or company data have been modified here.
+- APK signatures/versions/content and Windows package payloads are checked when assembling release artifacts; the release manifest records actual file hashes. Test APKs use debug signing; Windows installers are unsigned.
+- Supported limits: 64 MB uncompressed shared accounting database, 40 MB source snapshot, 10 MB individual attachment, plus Spark project quotas. No shared posting is acknowledged offline or after an unconfirmed cloud commit. The current sender runs in an open source owner app; Android may suspend background execution.
 
 The earlier application validation also established:
 

@@ -27,6 +27,8 @@ from . import tax_watch
 from .printing import render as print_document
 from .locking import RunLock
 from .firebase_sync import Firebase,SCHEMA as FIREBASE_SCHEMA
+from .firebase_ledger import SharedLedger
+from .shared_runtime import SharedHandlerMixin
 
 ROOT=Path(__file__).resolve().parents[1]
 MAX_BODY=40*1024*1024
@@ -62,7 +64,10 @@ class Application:
         self.firebase_status={'connected':False,'message':'Owner Firebase sign-in has not been linked yet.'}
         ledger=Ledger(self.path)
         ledger.db.executescript(FIREBASE_SCHEMA)
+        ledger.db.execute('CREATE TABLE IF NOT EXISTS processed_feeds(source TEXT NOT NULL,fingerprint TEXT NOT NULL,PRIMARY KEY(source,fingerprint))')
+        ledger.db.commit()
         ledger.close()
+        self.shared=SharedLedger(self)
 
     def ledger(self):return Ledger(self.path)
 
@@ -72,13 +77,12 @@ class Application:
             try:
                 with self.firebase_lock:connected=bool(self.firebase.bearer())
                 if not connected:
-                    self.stop.wait(15);continue
+                    self.stop.wait(30);continue
                 with self.firebase_lock:
                     ledger=self.ledger()
                     try:link=ledger.db.execute('SELECT * FROM firebase_link WHERE uid=?',(self.firebase.connection['uid'],)).fetchone()
                     finally:ledger.close()
                     if not link:raise AccountingError('Link the Firebase account from the owner settings before importing cloud records.')
-                    self.firebase.publish_service(self.public_origin)
                 receipts=self.firebase_status.get('sources',{})
                 self.firebase_status={'connected':True,'message':'Firebase connected. Checking retail and wholesale records.','sources':receipts}
                 for source in ['main','vendor']:
@@ -94,9 +98,13 @@ class Application:
                         self.firebase_status['message']='One or more source imports need review; other source imports continue.'
             except Exception as error:
                 self.firebase_status={'connected':False,'message':str(error)}
-            self.stop.wait(15)
+            self.stop.wait(30)
 
     def process(self,value,preview=False):
+        if preview:return self._process(value,preview=True)
+        with self.shared.mutation():return self._process(value)
+
+    def _process(self,value,preview=False):
         source=value.get("source")
         payload=sanitize_payload(value.get("payload"),source)
         ledger=self.ledger()
@@ -132,7 +140,22 @@ class Application:
                     duplicate=ledger.db.execute("SELECT source,source_id FROM documents WHERE source<>? AND kind='invoice' AND reference=? AND amount=?",(source,doc["reference"],doc["amount"])).fetchone()
                     if duplicate:
                         raise AccountingError(f"Invoice {doc['reference']} already exists from {duplicate['source']}; identify the original source before importing")
+            fingerprint=hashlib.sha256(json.dumps(enriched,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+            stamp=payload.get('exportedAt') if isinstance(payload,dict) else None
+            previous=ledger.db.execute('SELECT MAX(snapshot_at) FROM batches WHERE source=?',(source,)).fetchone()[0]
+            older_unchanged=False
+            if stamp and previous:
+                from datetime import datetime
+                older_unchanged=datetime.fromisoformat(str(stamp).replace('Z','+00:00'))<datetime.fromisoformat(previous)
+                if older_unchanged:
+                    older_unchanged=all((row:=ledger.db.execute('SELECT hash FROM documents WHERE source=? AND source_id=?',(source,doc['id'])).fetchone()) and row[0]==hashlib.sha256(json.dumps(doc,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest() for doc in documents)
+            if not preview and older_unchanged:
+                return {'added':0,'changed':0,'duplicates':len(documents),'records':len(documents),'warnings':warnings,'reviewCount':sum(d['kind']=='needs-cost' for d in documents),'sample':[]}
+            if not preview and ledger.db.execute('SELECT 1 FROM processed_feeds WHERE source=? AND fingerprint=?',(source,fingerprint)).fetchone():
+                return {'added':0,'changed':0,'duplicates':len(documents),'records':len(documents),'warnings':warnings,'reviewCount':sum(d['kind']=='needs-cost' for d in documents),'sample':[]}
             result=ledger.import_documents(source,documents,payload,value.get("filename","import.json"),payload.get("exportedAt") if isinstance(payload,dict) else None,accounts,preview,catalog=catalog_items(enriched,source))
+            if not preview:
+                with ledger.db:ledger.db.execute('INSERT OR IGNORE INTO processed_feeds VALUES(?,?)',(source,fingerprint))
             result["warnings"]=warnings
             result["reviewCount"]=sum(d["kind"]=="needs-cost" for d in documents)
             result["sample"]=[{k:v for k,v in d.items() if k not in {"original","lines"}} for d in documents[:12]]
@@ -142,6 +165,8 @@ class Application:
     def watch_feeds(self):
         hashes={}
         while not self.stop.is_set():
+            if self.shared.connected():
+                self.stop.wait(15);continue
             for source in ["main","vendor"]:
                 p=self.feed_dir/(source+".json")
                 if not p.exists():continue
@@ -165,7 +190,7 @@ class Application:
             self.stop.wait(3)
 
 
-class Handler(BaseHTTPRequestHandler):
+class LocalHandler(BaseHTTPRequestHandler):
     server_version="BackwoodsAccounting/1.0"
 
     @property
@@ -185,7 +210,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
         if filename:self.send_header("Content-Disposition","attachment; filename*=UTF-8''"+quote(filename,safe=""))
         secure='; Secure' if self.app.public_host and self.headers.get('Host','').lower()==self.app.public_host else ''
-        if set_cookie:self.send_header("Set-Cookie",f"bw_bootstrap={self.app.cookie}; HttpOnly; SameSite=Strict; Path=/{secure}")
+        if set_cookie and not getattr(self.app,'native_private_bootstrap',False):self.send_header("Set-Cookie",f"bw_bootstrap={self.app.cookie}; HttpOnly; SameSite=Strict; Path=/{secure}")
         if session_token is not None:self.send_header('Set-Cookie',f'bw_session={session_token}; HttpOnly; SameSite=Strict; Path=/; Max-Age={28800 if session_token else 0}{secure}')
         self.end_headers()
         self.wfile.write(data)
@@ -232,7 +257,7 @@ class Handler(BaseHTTPRequestHandler):
         if path=='/api/auth/status':
             if not self.trusted_request():self.respond({'error':'Untrusted request'},403);return
             ledger=self.app.ledger()
-            try:self.respond({'initialized':bool(ledger.db.execute('SELECT 1 FROM users').fetchone()),'user':auth.session_user(ledger,self.cookie_value('bw_session'))})
+            try:self.respond({'initialized':bool(ledger.db.execute('SELECT 1 FROM users').fetchone()),'user':auth.session_user(ledger,self.cookie_value('bw_session')),'firebaseConnected':bool(getattr(self.app.firebase,'connection',None))})
             finally:ledger.close()
             return
         if path in {"/","/app.js","/style.css","/print.css","/print.js"}:
@@ -284,6 +309,7 @@ class Handler(BaseHTTPRequestHandler):
                 value["feedDirectory"]=str(self.app.feed_dir)
                 value["feedErrors"]=dict(self.app.feed_errors)
                 value['firebaseStatus']=dict(self.app.firebase_status)
+                value['sharedLedger']=bool(getattr(self.app.firebase,'connection',None))
                 value["feeds"]={}
                 for source in ["main","vendor"]:
                     p=self.app.feed_dir/(source+"-status.json")
@@ -366,12 +392,15 @@ class Handler(BaseHTTPRequestHandler):
                     if not selected:raise AccountingError('Select your states of operation first')
                     # Launch checks in the background; do not hold the UI on many states.
                     def check_now():
-                        local=self.app.ledger()
                         try:
                             for state in ['US']+selected:
                                 if self.app.stop.is_set():break
-                                tax_watch.check_source(local,state)
-                        finally:local.close()
+                                with self.app.shared.mutation():
+                                    local=self.app.ledger()
+                                    try:tax_watch.check_source(local,state)
+                                    finally:local.close()
+                        except Exception as error:
+                            self.app.firebase_status={'connected':False,'message':'Tax check will retry: '+str(error)}
                     threading.Thread(target=check_now,daemon=True).start();result={'message':'Official-source checks started. Refresh this screen to see results.'}
                 elif path=='/api/firebase/connect':
                     verification,_=auth.login(ledger,{'username':self.user['username'],'password':value.get('ownerPassword','')})
@@ -568,6 +597,10 @@ class Handler(BaseHTTPRequestHandler):
             else:self.respond({'error':'Unknown authentication action'},404)
         except (AccountingError,ValueError,KeyError,sqlite3.IntegrityError) as exc:self.respond({'error':str(exc)},400)
         finally:ledger.close();self.app.write_lock.release()
+
+
+class Handler(SharedHandlerMixin,LocalHandler):
+    pass
 
 
 def main():

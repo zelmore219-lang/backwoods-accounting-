@@ -85,6 +85,7 @@ def common(destination,source,html):
 
 MAIN_HOOK=r'''
 window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.projectId,auth:Ba});
+e.useEffect(()=>window.dispatchEvent(new Event('bw:accounting-changed')),[r,a,t]);
 
   window.__bwAccountingSnapshot = () => {
     if (t || !a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
@@ -101,6 +102,7 @@ window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.pr
 
 VENDOR_HOOK=r'''
 window.__bwAccountingCloudContext=()=>s.mode==='synced'&&!s.pendingCount?({uid:n?.uid,projectId:ch.projectId,auth:Hr}):null;
+q.useEffect(()=>window.dispatchEvent(new Event('bw:accounting-changed')),[e,n,r,s.mode,s.pendingCount]);
 
 window.__bwAccountingSnapshot=()=>{
  if(!n||n.role!=='owner'||n.active===false||!r)return null;
@@ -153,7 +155,7 @@ def build(main_dir,vendor_asar,output):
     # The uploaded apps already contain bundled renderer dependencies. The Electron
     # main/preload code uses only Electron and Node built-ins; no npm runtime tree
     # was present in the supplied vendor ASAR.
-    for destination,source,version in [(main_dest,'main','8.2.2'),(vendor_dest,'vendor','4.1.2')]:
+    for destination,source,version in [(main_dest,'main','8.2.3'),(vendor_dest,'vendor','4.1.3')]:
         original_package=json.loads((destination/'package.json').read_text())
         connected_package={key:original_package[key] for key in ['name','author','type','main'] if key in original_package}
         connected_package.update({'version':version,'private':True,'productName':PROFILE_CONFIG[source]['connectedProfile'],
@@ -185,7 +187,7 @@ def build(main_dir,vendor_asar,output):
     (output/'README.txt').write_text('''CONNECTED TEST COPIES — preserve your installed apps and data.
 
 These are application archives, not Windows installers. The originals were not changed.
-Installer-ready versions are Main 8.2.2 Connected and Vendor 4.1.2 Connected,
+Installer-ready versions are Main 8.2.3 Connected and Vendor 4.1.3 Connected,
 based on the uploaded Main 8.2.0 and Vendor 4.1.0 packages. Connected editions copy
 the previous local profile on first launch and leave that original profile intact.
 Back up both source apps before testing. A separate installation folder does not

@@ -50,6 +50,10 @@ def safe_uuid(value):
 class SecretStore:
     def __init__(self,directory):self.path=Path(directory)/'payroll-connection.dpapi'
     def read(self):
+        if os.environ.get('BACKWOODS_ANDROID')=='1':
+            from java import jclass
+            data=str(jclass('com.backwoodsbrew.accounting.SecureStorage').readSecret('payroll'))
+            return json.loads(data) if data else None
         env={'accessToken':os.environ.get('GUSTO_ACCESS_TOKEN'),'refreshToken':os.environ.get('GUSTO_REFRESH_TOKEN'),
              'clientId':os.environ.get('GUSTO_CLIENT_ID'),'clientSecret':os.environ.get('GUSTO_CLIENT_SECRET'),
              'companyId':os.environ.get('GUSTO_COMPANY_ID'),'environment':os.environ.get('GUSTO_ENVIRONMENT','demo')}
@@ -58,6 +62,9 @@ class SecretStore:
         if os.name!='nt':raise ProviderError('Saved Windows payroll credentials cannot be opened on this operating system. Use secure environment bindings here.')
         return json.loads(self.dpapi(self.path.read_bytes(),False))
     def save(self,value):
+        if os.environ.get('BACKWOODS_ANDROID')=='1':
+            from java import jclass
+            jclass('com.backwoodsbrew.accounting.SecureStorage').saveSecret('payroll',json.dumps(value));return
         if os.name!='nt':raise ProviderError('Use secure environment bindings for payroll credentials on this development machine. The Windows installer saves them with Windows account encryption.')
         encrypted=self.dpapi(canonical(value).encode(),True)
         temp=self.path.with_suffix('.tmp');temp.write_bytes(encrypted);temp.replace(self.path)
@@ -90,6 +97,10 @@ class Gusto:
         self.host='api.gusto.com' if self.environment=='production' else 'api.gusto-demo.com'
         self.company=safe_uuid(self.connection.get('companyId',''))
     def request(self,method,path,body=None,refresh=True):
+        if method in {'POST','PUT','PATCH','DELETE'}:
+            from .firebase_ledger import BEFORE_EXTERNAL_WRITE
+            flush=BEFORE_EXTERNAL_WRITE.get()
+            if flush:flush()
         if not path.startswith('/v1/') or '..' in path:raise ProviderError('Unsupported payroll service path')
         headers={'Authorization':'Bearer '+self.connection.get('accessToken',''),'X-Gusto-API-Version':API_VERSION,'Accept':'application/json','Content-Type':'application/json'}
         if self.transport:return self.transport(method,path,body,headers)

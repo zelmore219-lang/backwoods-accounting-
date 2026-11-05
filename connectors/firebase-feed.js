@@ -35,7 +35,7 @@
     // Immutable chunks first; the pointer is published only after every chunk.
     for(let start=0;start<data.length;){
       const writes=[];
-      for(let n=0;n<8&&start<data.length;n++,start+=240000){
+      for(let n=0;n<3&&start<data.length;n++,start+=240000){
         let binary='';for(const byte of data.subarray(start,start+240000))binary+=String.fromCharCode(byte);
         writes.push({update:{name:`${root}/generations/${generation}/chunks/${String(index++).padStart(4,'0')}`,fields:fields({data:btoa(binary)})},currentDocument:{exists:false}});
       }
@@ -43,6 +43,14 @@
     }
     const write={update:{name:root,fields:fields({schemaVersion:1,generation,sha256,chunkCount:index,bytes:data.length,exportedAt:capturedAt})},currentDocument:prior?{updateTime:prior.updateTime}:{exists:false}};
     await request(api+':commit',{writes:[write]});
+    // Keep the current transfer snapshot rather than accumulating every copy on
+    // Spark. The authoritative ledger retains its posting/revision audit history.
+    if(prior?.fields?.generation?.stringValue&&prior.fields.generation.stringValue!==generation){
+      const old=prior.fields.generation.stringValue,count=Number(prior.fields.chunkCount?.integerValue);
+      if(/^[a-f0-9-]{36}$/.test(old)&&count>0&&count<=175){
+        try{for(let offset=0;offset<count;offset+=3)await request(api+':commit',{writes:Array.from({length:Math.min(3,count-offset)},(_,i)=>({delete:`${root}/generations/${old}/chunks/${String(offset+i).padStart(4,'0')}`}))});}catch{/* A failed cleanup cannot turn an acknowledged transfer into a failed sale. */}
+      }
+    }
     return {sha256,at:capturedAt};
   }
   function start(){
@@ -50,12 +58,12 @@
     let busy=false,last='',identity='',statusBox;
     const context=()=>global.__bwAccountingCloudContext?.();
     const snapshot=()=>global.__bwAccountingSnapshot?.();
-    function status(text){if(!statusBox){statusBox=document.createElement('div');statusBox.id='bw-accounting-cloud-status';statusBox.setAttribute('role','status');statusBox.style.cssText='position:fixed;bottom:8px;left:8px;z-index:2147483645;max-width:340px;background:#153e35;color:#fff;padding:8px 12px;border-radius:8px;font:12px system-ui';document.body.append(statusBox);}statusBox.textContent=text;}
+    function status(text){if(!statusBox){statusBox=document.createElement('div');statusBox.id='bw-accounting-cloud-status';statusBox.setAttribute('role','status');statusBox.style.cssText='position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:8px;z-index:2147483645;max-width:min(340px,calc(100vw - 16px));background:#153e35;color:#fff;padding:7px 11px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.append(statusBox);}statusBox.hidden=false;statusBox.textContent=text;}
     async function tick(){
       if(busy)return;busy=true;
       try{
         const c=context();const packet=snapshot();
-        if(!c?.auth?.currentUser||!packet){status('Accounting: waiting for owner sign-in and source sync.');return;}
+        if(!c?.auth?.currentUser||!packet){if(statusBox)statusBox.hidden=true;return;}
         if(c.uid!==identity){last='';identity=c.uid;}
         if(navigator.onLine===false){status('Accounting: offline. Saved records will transfer when connected.');return;}
         const digest=hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(clean(packet)))));
@@ -65,7 +73,10 @@
         if(result){last=result.sha256;status('Accounting records sent to Firebase. Ledger import is tracked in Business Accounting.');}
       }catch(error){status(error.message);}finally{busy=false;}
     }
-    global.addEventListener('online',tick);setInterval(tick,15000);setTimeout(tick,1500);
+    global.addEventListener('online',tick);
+    global.addEventListener('bw:accounting-changed',tick);
+    document.addEventListener('visibilitychange',tick);
+    setInterval(tick,15000);setTimeout(tick,1500);
   }
   if(typeof module!=='undefined'&&module.exports)module.exports={publish,clean};
   else start();

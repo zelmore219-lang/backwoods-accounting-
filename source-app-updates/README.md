@@ -4,8 +4,8 @@ This folder contains complete installer-ready connected app copies, not just rep
 
 | App | Uploaded base | Connected edition | Desktop shortcut |
 | --- | --- | --- | --- |
-| Main retail app | 8.2.0 | 8.2.2 | Backwoods Brew Connected |
-| Vendor / wholesale app | 4.1.0 | 4.1.2 | Backwoods Vendor Ordering Connected |
+| Main retail app | 8.2.0 | 8.2.3 | Backwoods Brew Connected |
+| Vendor / wholesale app | 4.1.0 | 4.1.3 | Backwoods Vendor Ordering Connected |
 
 The versions are based on the packages supplied for this task. Compatibility with other installed source versions has not been established.
 
@@ -15,8 +15,8 @@ Extract the complete repository ZIP. Install Node.js 22+, then double-click `BUI
 
 The outputs are:
 
-- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.2.exe`
-- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.2.exe`
+- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.3.exe`
+- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.3.exe`
 
 ## First launch and existing records
 
@@ -34,7 +34,7 @@ The connected edition is the app to use for future entries. The original profile
 
 After the one-time [Firebase company setup](../firebase/SETUP.md), open each connected source app and sign in as the Firebase owner. Accounting copies send automatically to that owner's private namespace. The accounting service imports retail and wholesale records into the same ledger while running. No transfer link or opt-in button is required.
 
-The main app retains its own accounting and exports its ledger/supporting records. Vendor exports invoices, payments, approved credits, receipts and captured costs after its source sync finishes. Windows also retains an automatic local-file feed under the same Windows user. Both routes use the existing receiver's import IDs and validation. Cloud use still needs the reviewed Firebase rules and persistent accounting service; these have not been deployed here.
+The main app retains its own accounting and exports its ledger/supporting records. Vendor exports invoices, payments, approved credits, receipts and captured costs after its source sync finishes. Windows also retains an automatic local-file feed under the same Windows user. Both routes use the existing receiver's import IDs and validation. Cloud use requires the reviewed Firebase rules once. The full accounting engine runs in the installed app and shares its ledger through Firestore; no external host or Blaze upgrade is needed. Live rules have not been published here.
 
 Test a retail sale and a delivered wholesale invoice first. Draft wholesale orders are not revenue. Review the App connections status, control totals and any cost warnings. Repeating an unchanged snapshot must not duplicate postings.
 
