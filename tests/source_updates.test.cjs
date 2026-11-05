@@ -91,11 +91,33 @@ test('prepared update packages include the profile helper, sender and renderer a
     assert(fs.existsSync(path.join(folder,kind==='main'?'www/index.html':'dist/index.html')));
   }
 });
+test('original retail and wholesale business logic is retained outside accounting-copy hooks and cost metadata',()=>{
+  const cases=[
+    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'56f226409966eae27e0127d72b670956b2d78731ebff4a5df2b955893906b0de'},
+    {kind:'vendor',file:'dist/assets/index-CWBa4KXx.js',sha:'7b639f76f6c0a6d541895bc4a6753d33ad237c7b4ac9074d7dcc260225043ec1'},
+  ];
+  for(const item of cases){
+    const code=fs.readFileSync(path.join(ROOT,'source-app-updates',item.kind,item.file),'utf8');
+    let restored;
+    if(item.kind==='main'){
+      const start=code.indexOf('window.__bwAccountingCloudContext=');
+      const end=code.indexOf('\n  function P(',start);
+      assert(start>0&&end>start);restored=code.slice(0,start).trimEnd()+code.slice(end);
+    }else{
+      const start=code.indexOf('\nwindow.__bwAccountingCloudContext=');
+      const end=code.indexOf('\n};',start)+3;
+      assert(start>0&&end>start);restored=code.slice(0,start)+code.slice(end).replace(/^\n+/,'');
+      for(const metadata of ['unitCost:Number(Ce.cost||0),accountingCostCaptured:true,','unitCost:Number((xe.products.find(p=>p.id===Z.productId)||{}).cost||0),accountingCostCaptured:true,'])
+        restored=restored.split(metadata).join('');
+    }
+    assert.equal(require('node:crypto').createHash('sha256').update(restored).digest('hex'),item.sha,item.kind+' native business logic changed');
+  }
+});
 test('main export uses native ledger settings without exporting credentials or mirrored invoices',()=>{
   const script=fs.readFileSync(path.join(ROOT,'scripts/build_connected_apps.py'),'utf8');
   const hook=/MAIN_HOOK=r'''([\s\S]*?)'''/.exec(script)[1];
   const native={accounts:[],orders:[],invoices:[{id:'vendor-copy',sourceSystem:'vendor-ordering'}],settings:{nativeSetting:42,privateSetting:'not exported'}};
-  const sandbox={window:{dispatchEvent:()=>{}},e:{useEffect:fn=>fn()},Event,t:false,a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
+  const sandbox={window:{dispatchEvent:()=>true},e:{useEffect:fn=>assert.equal(fn(),undefined,'the source-change effect must not return dispatchEvent\'s boolean as React cleanup')},Event,t:false,a:{role:'owner'},r:native,Ga:data=>{assert.equal(data.settings.nativeSetting,42);assert.equal(data.invoices.length,0);return [];}};
   const before=JSON.stringify(native);vm.runInNewContext(hook,sandbox);const packet=sandbox.window.__bwAccountingSnapshot();
   assert(!('settings' in packet.data));assert.equal(JSON.stringify(native),before);
   sandbox.a.active=false;assert.equal(sandbox.window.__bwAccountingSnapshot(),null);

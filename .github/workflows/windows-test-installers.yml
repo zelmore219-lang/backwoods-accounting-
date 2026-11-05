@@ -48,6 +48,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Source update tests failed' }
           node tests/firebase_feed.test.cjs
           if ($LASTEXITCODE -ne 0) { throw 'Firebase transfer tests failed' }
+      - name: Verify real retail and vendor login screens
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.62.0
+          if ($LASTEXITCODE -ne 0) { throw 'Browser test dependencies failed' }
+          python -m playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw 'Browser installation failed' }
+          python scripts/source_browser_smoke.py --apk-dir android-apks
+          if ($LASTEXITCODE -ne 0) { throw 'Real source-app login checks failed' }
       - name: Validate merged permissions with the Firestore emulator
         shell: pwsh
         run: |
@@ -86,7 +95,7 @@ jobs:
             @{ file=$_.Name; bytes=$_.Length; sha256=(Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
           })
           $artifacts | ForEach-Object { "$($_.sha256)  $($_.file)" } | Set-Content dist/test-release/SHA256SUMS.txt
-          @{ sourceCommit=$env:GITHUB_SHA; liveFirebaseTested=$false; physicalDeviceTested=$false; artifacts=$artifacts } | ConvertTo-Json -Depth 5 | Set-Content dist/test-release/BUILD-MANIFEST.json
+          @{ sourceCommit=$env:GITHUB_SHA; sourceLoginBrowserTested=$true; liveFirebaseTested=$false; physicalDeviceTested=$false; artifacts=$artifacts } | ConvertTo-Json -Depth 5 | Set-Content dist/test-release/BUILD-MANIFEST.json
       - uses: actions/upload-artifact@v4
         with:
           name: all-three-app-test-downloads
@@ -97,7 +106,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = 'firebase-spark-test-1'
+          $tag = 'firebase-spark-test-2'
           $assets = @(Get-ChildItem dist/test-release -File | ForEach-Object { $_.FullName })
           gh release view $tag --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -eq 0) {

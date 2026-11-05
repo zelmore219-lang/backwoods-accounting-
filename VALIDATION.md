@@ -4,8 +4,9 @@ This records evidence from the current cloud build. It is not a claim of Windows
 
 ## Current Spark build
 
+- Main 8.2.4 / Vendor 4.1.4 fix a reproduced startup regression in the previous test release: the source-change effect returned `dispatchEvent`'s boolean as React cleanup. Real Chromium login checks now cover both desktop renderers and extracted APK assets at desktop/phone widths. Original web screens/styles are retained; the transfer connector adds no visible overlay. Native physical-device execution still requires testing.
 - **87 Python tests passed** in the cloud workspace, including two-device ledger convergence, writer exclusion, checksummed generation rejection, failed-commit rollback, durable payroll intent before external writes, repeated-expense request deduplication, session revocation, native bootstrap privacy and source-history compaction.
-- **12 Node source/desktop checks** and **five Node Firebase transport checks** pass. Firebase transport tests use controlled responses; they are not a live company integration test.
+- **13 Node source/desktop checks** and **five Node Firebase transport checks** pass. Original compiled retail/wholesale business code is hash-checked after removing only the accounting-copy hook/cost metadata. Firebase transport tests use controlled responses; they are not a live company integration test.
 - The full accounting engine compiled into the Android APK with Chaquopy 16.1.0 / Python 3.12. It no longer needs an external accounting host. Three Android origin tests constrain browser navigation to the private embedded engine. Physical Android execution has not yet been performed.
 - The complete merged rules preserve the supplied baseline permission logic and add private active-owner Spark accounting paths. The GitHub release workflow runs real Firestore-emulator checks before publication. No live Firebase rules, billing setting or company data have been modified here.
 - APK signatures/versions/content and Windows package payloads are checked when assembling release artifacts; the release manifest records actual file hashes. Test APKs use debug signing; Windows installers are unsigned.

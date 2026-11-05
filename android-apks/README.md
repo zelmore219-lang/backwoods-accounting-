@@ -1,9 +1,9 @@
 # Firebase Spark app downloads
 
-- [Main retail 8.2.3 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Brew-Connected-8.2.3-test.apk)
-- [Vendor wholesale 4.1.3 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Vendor-Connected-4.1.3-test.apk)
+- [Main retail 8.2.4 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Brew-Connected-8.2.4-test.apk)
+- [Vendor wholesale 4.1.4 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Vendor-Connected-4.1.4-test.apk)
 - [Business Accounting 1.0.2 APK](https://github.com/zelmore219-lang/backwoods-accounting-/raw/refs/heads/main/android-apks/Backwoods-Business-Accounting-1.0.2-test.apk)
-- [Windows installers and release checksums](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/firebase-spark-test-1)
+- [Windows installers and release checksums](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/firebase-spark-test-2)
 
 The accounting APK now contains the full engine and shares books through Firestore. It does not ask for a server/transfer URL. No host or Blaze upgrade is required. Publish the reviewed [merged Firebase rules](../firebase/firestore.rules) once, then follow [Spark setup](../firebase/SETUP.md). Live company operation has not been verified by this build.
 

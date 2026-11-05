@@ -55,15 +55,17 @@
   }
   function start(){
     const source=document.currentScript?.dataset.source;if(!source)return;
-    let busy=false,last='',identity='',statusBox;
+    let busy=false,last='',identity='';
     const context=()=>global.__bwAccountingCloudContext?.();
     const snapshot=()=>global.__bwAccountingSnapshot?.();
-    function status(text){if(!statusBox){statusBox=document.createElement('div');statusBox.id='bw-accounting-cloud-status';statusBox.setAttribute('role','status');statusBox.style.cssText='position:fixed;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);left:8px;z-index:2147483645;max-width:min(340px,calc(100vw - 16px));background:#153e35;color:#fff;padding:7px 11px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.append(statusBox);}statusBox.hidden=false;statusBox.textContent=text;}
+    // Keep the standard source screens untouched. Diagnostic status is private
+    // to this window; the connector adds no buttons, panels or overlays.
+    function status(message){global.__bwAccountingTransferStatus={message,at:new Date().toISOString()};}
     async function tick(){
       if(busy)return;busy=true;
       try{
         const c=context();const packet=snapshot();
-        if(!c?.auth?.currentUser||!packet){if(statusBox)statusBox.hidden=true;return;}
+        if(!c?.auth?.currentUser||!packet){global.__bwAccountingTransferStatus=null;return;}
         if(c.uid!==identity){last='';identity=c.uid;}
         if(navigator.onLine===false){status('Accounting: offline. Saved records will transfer when connected.');return;}
         const digest=hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(clean(packet)))));

@@ -32883,7 +32883,7 @@ function Ry() {
     [w, I] = j.useState(!1);
 
   window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.projectId,auth:Ba});
-e.useEffect(()=>window.dispatchEvent(new Event('bw:accounting-changed')),[r,a,t]);
+e.useEffect(()=>{window.dispatchEvent(new Event('bw:accounting-changed'));},[r,a,t]);
   window.__bwAccountingSnapshot = () => {
     if (t || !a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
     const keys=['accounts','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores'];

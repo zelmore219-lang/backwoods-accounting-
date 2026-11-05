@@ -26,7 +26,7 @@ The installer is unsigned unless built with your organization's signing setup. A
 
 ## Source-app connections
 
-Complete connected editions of **both** supplied source apps are now in [source-app-updates](source-app-updates/README.md). Extract the whole repository and run `BUILD-APP-UPDATES-WINDOWS.cmd` to build Main 8.2.3 and Vendor 4.1.3 installers. Node.js 22+ is required; these two builds do not require Python. These replace the earlier manual ASAR replacement instructions.
+Complete connected editions of **both** supplied source apps are now in [source-app-updates](source-app-updates/README.md). Extract the whole repository and run `BUILD-APP-UPDATES-WINDOWS.cmd` to build Main 8.2.4 and Vendor 4.1.4 installers. Node.js 22+ is required; these two builds do not require Python. These replace the earlier manual ASAR replacement instructions.
 
 Back up and close the originals first. Connected editions install alongside them with separate profiles. On first launch, the helper copies a detected original profile without modifying it; ambiguous or unsafe profile choices stop with an explanation. Check your records before using the connected edition for future entries. The preserved original profile is not a second synchronized local copy. For isolated tests, use a separate Windows user for all three applications; `BACKWOODS_TEST_DATA_DIR` isolates only a source profile.
 

@@ -4,8 +4,8 @@ This folder contains complete installer-ready connected app copies, not just rep
 
 | App | Uploaded base | Connected edition | Desktop shortcut |
 | --- | --- | --- | --- |
-| Main retail app | 8.2.0 | 8.2.3 | Backwoods Brew Connected |
-| Vendor / wholesale app | 4.1.0 | 4.1.3 | Backwoods Vendor Ordering Connected |
+| Main retail app | 8.2.0 | 8.2.4 | Backwoods Brew Connected |
+| Vendor / wholesale app | 4.1.0 | 4.1.4 | Backwoods Vendor Ordering Connected |
 
 The versions are based on the packages supplied for this task. Compatibility with other installed source versions has not been established.
 
@@ -15,8 +15,8 @@ Extract the complete repository ZIP. Install Node.js 22+, then double-click `BUI
 
 The outputs are:
 
-- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.3.exe`
-- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.3.exe`
+- `dist\source-app-updates\main\Backwoods-Brew-Connected-Setup-8.2.4.exe`
+- `dist\source-app-updates\vendor\Backwoods-Vendor-Ordering-Connected-Setup-4.1.4.exe`
 
 ## First launch and existing records
 

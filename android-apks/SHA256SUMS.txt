@@ -1,3 +1,3 @@
-6cc80827f6bde18395d07149b7b492877ed689eb0bd1309955d8b2232d5c44fe  Backwoods-Brew-Connected-8.2.3-test.apk
-4873bf35edca4d9cd6d4d569dcbba78b8b9b36504db2fef3c574a500429a9a31  Backwoods-Vendor-Connected-4.1.3-test.apk
+f2e617e94a6f0b27addd0f5db5b91a7d966a5fc3fc43201da8970a483c75aa98  Backwoods-Brew-Connected-8.2.4-test.apk
+e83bdc8fa69e6cff2914540fc8c3c89b0f58270810a0464f4938c80243f1c02e  Backwoods-Vendor-Connected-4.1.4-test.apk
 a0253db8aec338c48da8eff7a69eb8780198afb9ee01118015d940d604309b3c  Backwoods-Business-Accounting-1.0.2-test.apk

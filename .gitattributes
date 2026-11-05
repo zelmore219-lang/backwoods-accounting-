@@ -1,0 +1,3 @@
+# Keep packaged renderer bytes identical to the checked Android APK assets on Windows.
+source-app-updates/** text=auto eol=lf
+android-apps/*/web/** text=auto eol=lf
