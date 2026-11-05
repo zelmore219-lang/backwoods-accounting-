@@ -97,6 +97,9 @@ jobs:
           node desktop/node_modules/electron/install.js
           desktop/node_modules/electron/dist/electron --no-sandbox --ozone-platform=headless scripts/electron_live_updater.cjs --download
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
       - name: Prepare Android SDK and native assets
         run: |
           set +o pipefail
