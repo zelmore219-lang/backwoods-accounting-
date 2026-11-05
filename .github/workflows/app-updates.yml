@@ -1,0 +1,120 @@
+name: App updates (Windows and Android)
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'New package release tag (leave blank for apps-RUN_NUMBER)'
+        required: false
+        type: string
+      accounting_version:
+        description: 'Accounting version (e.g. 1.0.5; blank uses repository version)'
+        required: false
+        type: string
+      vendor_version:
+        description: 'Vendor version (e.g. 4.1.7; blank uses repository version)'
+        required: false
+        type: string
+      main_version:
+        description: 'Main version (e.g. 8.2.6; blank uses repository version)'
+        required: false
+        type: string
+      publish:
+        description: 'Publish packages and activate the update feed after validation'
+        default: true
+        type: boolean
+permissions:
+  contents: write
+concurrency:
+  group: backwoods-app-updates
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || format('apps-{0}', github.run_number) }}
+      ACCOUNTING_VERSION: ${{ inputs.accounting_version }}
+      VENDOR_VERSION: ${{ inputs.vendor_version }}
+      MAIN_VERSION: ${{ inputs.main_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Restore retained Android signing identity
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_UPDATE_KEYSTORE_BASE64 }}
+        run: |
+          python - <<'PY'
+          import os,base64
+          from pathlib import Path
+          value=os.environ.get('ANDROID_SIGNING_KEY','')
+          if not value:raise SystemExit('Add the ANDROID_UPDATE_KEYSTORE_BASE64 repository secret before building. Never generate a replacement key for an existing app.')
+          folder=Path('.build-resources/android-signing');folder.mkdir(parents=True,exist_ok=True)
+          key=folder/'debug.keystore';key.write_bytes(base64.b64decode(value,validate=True));key.chmod(0o600)
+          PY
+      - name: Set selected versions and install pinned build tools
+        run: |
+          python scripts/set_app_versions.py --accounting "$ACCOUNTING_VERSION" --vendor "$VENDOR_VERSION" --main "$MAIN_VERSION"
+          python -m pip install --disable-pip-version-check uv==0.13.4 Pillow==13.0.0 playwright==1.62.0
+          uv python install --install-dir .build-resources/managed-python --no-bin --no-registry cpython-3.12.15-windows-x86_64-none
+          python - <<'PY'
+          import shutil
+          shutil.copytree('.build-resources/managed-python/cpython-3.12.15-windows-x86_64-none','.build-resources/python',symlinks=True)
+          PY
+          npm ci --prefix desktop --ignore-scripts --no-audit --no-fund
+          npm ci --prefix android-apps/main --no-audit --no-fund
+          npm ci --prefix android-apps/vendor --no-audit --no-fund
+          node scripts/get_nsis.cjs
+          python scripts/prepare_updaters.py
+          python scripts/prepare_app_icons.py
+          python scripts/prepare_accounting_android.py
+      - name: Test accounting and updater rules
+        run: |
+          python -m unittest discover -s tests -q
+          node tests/updater.test.cjs
+          node tests/updater-electron.test.cjs
+          node tests/source_updates.test.cjs
+          node tests/firebase_feed.test.cjs
+          python -m playwright install --with-deps chromium
+          python scripts/browser_updater_smoke.py
+      - name: Prepare Android SDK and native assets
+        run: |
+          set +o pipefail
+          yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          (cd android-apps/main && node_modules/.bin/cap sync android)
+          (cd android-apps/vendor && node_modules/.bin/cap sync android)
+      - name: Build Android APKs and native updater tests
+        run: |
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
+          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 assembleDebug)
+          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 assembleDebug)
+      - name: Build Windows installers
+        run: |
+          NSIS_COMPILER="$(cat .build-tools/nsis-path.txt)"
+          python scripts/build_installer.py --nsis "$NSIS_COMPILER"
+          python scripts/build_source_installers.py main --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
+          python scripts/build_source_installers.py vendor --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
+      - name: Validate identities and prepare update feed
+        run: python scripts/build_update_release.py --tag "$RELEASE_TAG"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-and-android-updates
+          path: dist/update-release/*
+          retention-days: 14
+      - name: Publish verified packages and update feed
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_updates.py --tag "$RELEASE_TAG" --directory dist/update-release
