@@ -84,7 +84,9 @@ def build(tag,out,reuse_accounting=False):
 
 All three apps now include App updates: current/latest versions, checks, verified downloads and user-approved installation. Updates are checked on startup and every six hours while Windows apps run; Android checks on startup at most once every six hours. Auto-download is optional. Windows uses a setup wizard; Android requires system installation approval.
 
-**Install this updater-enabled version manually once.** Future versions can then be installed through App updates. Back up records before updating. Never uninstall an existing app to fix a signing conflict.
+**Windows:** install this version manually once to fix GitHub download redirects. Later versions can then be installed through App updates.
+
+**Android:** Main 8.2.5 and Vendor 4.1.6 can download this update through their existing App updates button. Choose Check, Download, then Install and approve Android's installation prompt. In the new Main and Vendor versions, App updates is available only in Settings and the floating button is removed. Accounting keeps its existing update entry. Back up records before updating. Never uninstall an existing app to fix a signing conflict.
 
 Android updates are signed with the retained test key used by Accounting 1.0.3 and Vendor 4.1.5. Earlier APKs signed with a different key cannot be upgraded in place, including the older Main APK. Those installations require their original signing key. Windows installers remain unsigned. Windows installation, Android installation and physical-device operation require device testing.
 
