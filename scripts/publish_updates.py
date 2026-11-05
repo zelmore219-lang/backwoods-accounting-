@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 import urllib.request
 import urllib.error
+import urllib.parse
 from build_update_release import REPO, sha
 
 FEED=f'https://github.com/{REPO}/releases/download/app-updates/backwoods-updates.json'
@@ -27,6 +28,17 @@ def create_release(tag,target,title,notes):
     # in the release listing immediately.
     payload={'tag_name':tag,'target_commitish':target,'name':title,'body':notes,'draft':True,'prerelease':True}
     return json.loads(subprocess.check_output(['gh','api','--method','POST',f'repos/{REPO}/releases','--input','-'],input=json.dumps(payload),text=True))
+def by_id(identity):
+    return json.loads(subprocess.check_output(['gh','api',f'repos/{REPO}/releases/{identity}'],text=True))
+def upload(value,path,replace=False):
+    existing=next((a for a in by_id(value['id'])['assets'] if a['name']==path.name),None)
+    if existing:
+        if not replace:
+            verify_assets({'assets':[existing]},[path]);return
+        subprocess.check_call(['gh','api','--method','DELETE',f"repos/{REPO}/releases/assets/{existing['id']}"])
+    address=f"https://uploads.github.com/repos/{REPO}/releases/{value['id']}/assets?name="+urllib.parse.quote(path.name,safe='')
+    result=json.loads(subprocess.check_output(['gh','api','--method','POST',address,'--header','Content-Type: application/octet-stream','--input',str(path)],text=True))
+    verify_assets({'assets':[result]},[path])
 def verify_assets(value,files):
     assets={a['name']:a for a in value['assets']}
     for p in files:
@@ -65,14 +77,14 @@ def publish(tag,directory):
     for p in files:
         if p.name in existing:
             verify_assets(current,[p])
-        elif current['draft']:gh('release','upload',tag,str(p))
+        elif current['draft']:upload(current,p)
         else:raise ValueError('Published release is immutable; choose a new release tag')
-    verify_assets(release(tag),files)
+    verify_assets(by_id(current['id']),files)
     gh('release','edit',tag,'--draft=false','--prerelease','--latest=false')
     channel=release('app-updates')
     if channel is None:channel=create_release('app-updates',feed['sourceCommit'],'Backwoods automatic update feed','Public update metadata for Main, Vendor and Business Accounting. Versioned packages are linked from backwoods-updates.json.')
-    gh('release','upload','app-updates',str(directory/'backwoods-updates.json'),'--clobber')
-    verify_assets(release('app-updates'),[directory/'backwoods-updates.json'])
+    upload(channel,directory/'backwoods-updates.json',replace=True)
+    verify_assets(by_id(channel['id']),[directory/'backwoods-updates.json'])
     gh('release','edit','app-updates','--draft=false','--prerelease','--latest=false')
     print(f'https://github.com/{REPO}/releases/tag/{tag}')
     print('Public updater feed: '+FEED)
