@@ -25,6 +25,7 @@ let updateStatus = {
   error: ""
 };
 let updater = null;
+let sharedUpdater;
 let updaterFeedUrl = "";
 let downloadedInstallerPath = "";
 
@@ -398,6 +399,8 @@ if (!gotLock) {
 } else {
   app.whenReady().then(() => {
     const win = createWindow();
+    sharedUpdater=require('./updater/electron.cjs').setup({kind:'main',name:'Backwoods Brew',parent:()=>win});
+    ipcMain.handle('backwoods:open-updates',event=>{if(event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Main app window required');return sharedUpdater.open();});
     publicUpdateStatus({ message: app.isPackaged ? "Updater ready." : "Updater disabled in dev mode." });
 
     if (false && app.isPackaged && readUpdateConfig().enabled && readUpdateConfig().feedUrl) {
@@ -437,32 +440,9 @@ ipcMain.handle("app-info", () => ({
   updateConfigPath: updateConfigPath()
 }));
 
-ipcMain.handle("update-status", () => ({ phase: "manual", enabled: false, currentVersion: app.getVersion(), message: "Use the new Windows installer for updates.", updateAvailable: false, updateDownloaded: false }));
-
-ipcMain.handle("update-configure", (_event, config) => {
-  const next = sanitizeUpdateConfig(config);
-  if (next.feedUrl && !validateFeedUrl(next.feedUrl)) {
-    return broadcastUpdateStatus({
-      phase: "config-error",
-      message: "Update feed URL must start with https:// or http://.",
-      error: "Invalid update feed URL."
-    });
-  }
-  const saved = writeUpdateConfig(next);
-  updater = null;
-  updaterFeedUrl = "";
-  return broadcastUpdateStatus({
-      phase: saved.enabled && saved.feedUrl ? "configured" : "not-configured",
-    message: saved.enabled && saved.feedUrl ? "Auto-update feed configured." : "Needs hosted update feed URL before update checks can run.",
-    error: ""
-  });
-});
-
-ipcMain.handle("update-check", () => checkForAppUpdates());
-
-ipcMain.handle("update-download", () => downloadAppUpdate());
-
-ipcMain.handle("update-install", () => installDownloadedUpdate());
+// The legacy Settings panel opens the shared, isolated update wizard.
+ipcMain.handle("update-status", () => ({phase:"ready",enabled:true,currentVersion:app.getVersion(),message:"Open App updates to check, download and install Windows updates.",updateAvailable:false,updateDownloaded:false}));
+for(const channel of ["update-configure","update-check","update-download","update-install"])ipcMain.handle(channel,async event=>{const owner=BrowserWindow.fromWebContents(event.sender);if(!owner||event.senderFrame!==owner.webContents.mainFrame)throw Error('Main app window required');await sharedUpdater?.open();return {phase:'ready',message:'The App updates wizard is open.'};});
 ipcMain.handle("local-weather-fetch", (_event, payload) => fetchLocalWeather(payload));
 
 ipcMain.handle("open-user-data", async () => {

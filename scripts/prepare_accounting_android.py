@@ -1,10 +1,12 @@
 """Copy only accounting program files into the embedded Android runtime."""
 from pathlib import Path
 import shutil
+from prepare_app_icons import prepare_icons
 
 ROOT=Path(__file__).resolve().parents[1]
 
 def prepare():
+    prepare_icons("accounting")
     target=ROOT/'.build-resources/android-python'
     if target.exists():shutil.rmtree(target)
     package=target/'accounting';package.mkdir(parents=True)

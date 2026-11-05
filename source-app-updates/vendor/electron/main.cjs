@@ -36,6 +36,7 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
   }
+  return win;
 }
 
 app.whenReady().then(() => {
@@ -55,7 +56,9 @@ app.whenReady().then(() => {
     await fs.writeFile(result.filePath, String(options.content ?? ''), options.encoding || 'utf8')
     return { canceled: false, filePath: result.filePath }
   })
-  createWindow()
+  const win=createWindow();
+  const updates=require('./updater/electron.cjs').setup({kind:'vendor',name:'Vendor Connected',parent:()=>win});
+  ipcMain.handle('backwoods:open-updates',event=>{if(event.sender!==win.webContents||event.senderFrame!==win.webContents.mainFrame)throw Error('Main app window required');return updates.open();});
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

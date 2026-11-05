@@ -48,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
         getWindow().setStatusBarColor(forest);
         SecureStorage.initialize(getApplicationContext());
         origin=""; setup();
+        com.backwoodsbrew.updates.UpdaterActivity.scheduleCheck(this);
     }
 
     private void copyProgramAssets() throws Exception {
@@ -126,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
             },"cached-accounting").start();
         });
         layout.addView(cached);
+        layout.addView(button("App updates",v->startActivity(new Intent(this,com.backwoodsbrew.updates.UpdaterActivity.class))));
         layout.addView(text("Your records stay together",18));
         layout.addView(text("Retail and wholesale keep their own books. Business Accounting combines their accounting records with payroll, production costs and business expenses. The first accounting sign-in may ask you to create your business owner account. Firebase permissions must be enabled once for your company.",14));
         android.widget.ScrollView scroll=new android.widget.ScrollView(this);scroll.setFillViewport(true);scroll.setFitsSystemWindows(true);scroll.addView(layout);setContentView(scroll);
@@ -136,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout bar = new LinearLayout(this);
         bar.addView(button("Books", v -> browser.loadUrl(origin + "/")));
         bar.addView(button("Print", v -> print()));
+        bar.addView(button("Updates",v->startActivity(new Intent(this,com.backwoodsbrew.updates.UpdaterActivity.class))));
         bar.addView(button("Company account", v -> new AlertDialog.Builder(this)
             .setTitle("Sign in to another company?")
             .setMessage("This signs you out on this phone and clears its cached web data. Company records stay in Firebase and this app's private data. A different company requires a separate app profile.")

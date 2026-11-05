@@ -2,15 +2,13 @@
 import json
 from pathlib import Path
 import re
-import shutil
+from prepare_app_icons import prepare_icons
 
 ROOT=Path(__file__).resolve().parents[1]
 GRADLE_SHA256='f397b287023acdba1e9f6fc5ea72d22dd63669d59ed4a289a29b1a76eee151c6'
 
 
 def configure():
-    icon=ROOT/'source-app-updates/vendor/dist/icons/icon-512.png'
-    foreground=ROOT/'source-app-updates/vendor/dist/icons/icon-512-maskable.png'
     for kind in ['main','vendor']:
         project=ROOT/'android-apps'/kind
         metadata=json.loads((project/'build-metadata.json').read_text())
@@ -18,7 +16,7 @@ def configure():
         build=android/'app/build.gradle'
         text=build.read_text()
         text=re.sub(r'versionCode \d+','versionCode '+str(metadata['versionCode']),text,count=1)
-        text=re.sub(r'versionName "[^"]+"','versionName "'+metadata['versionName']+'"',text,count=1)
+        text=re.sub(r'versionName [\'"][^\'"]+[\'"]','versionName "'+metadata['versionName']+'"',text,count=1)
         build.write_text(text)
         wrapper=android/'gradle/wrapper/gradle-wrapper.properties'
         text=wrapper.read_text().replace('gradle-8.11.1-all.zip','gradle-8.11.1-bin.zip')
@@ -33,11 +31,7 @@ def configure():
         if camera not in text:text=text.replace('</manifest>','    '+camera+'\n</manifest>')
         manifest.write_text(text)
         resources=android/'app/src/main/res'
-        # Use supplied, already prepared artwork without editing image pixels.
-        for folder in resources.glob('mipmap-*dpi'):
-            for filename in ['ic_launcher.png','ic_launcher_round.png']:
-                shutil.copy2(icon,folder/filename)
-            shutil.copy2(foreground,folder/'ic_launcher_foreground.png')
+        prepare_icons(kind)
         for splash in resources.glob('**/splash.png'):splash.unlink()
         (resources/'drawable/splash.xml').write_text('''<?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">

@@ -1,4 +1,4 @@
-const {app,BrowserWindow,Menu,Tray,shell,dialog}=require('electron');
+const {app,BrowserWindow,Menu,Tray,shell,dialog,ipcMain}=require('electron');
 const {spawn}=require('node:child_process');
 const path=require('node:path');
 let worker,window,tray,origin,quitting=false;
@@ -9,16 +9,19 @@ else {
   app.whenReady().then(start).catch(error=>{dialog.showErrorBox('Backwoods Business Accounting',error.message);app.quit();});
 }
 async function start(){
+  const updates=require('./updater/electron.cjs').setup({kind:'accounting',name:'Business Accounting',parent:()=>window});
+  ipcMain.handle('backwoods:open-updates',event=>{if(event.sender!==window?.webContents||event.senderFrame!==window.webContents.mainFrame)throw Error('Main app window required');return updates.open();});
   const remote=require('./company-server.cjs').companyServer(process.env.BACKWOODS_ACCOUNTING_SERVER_URL);
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {label:'File',submenu:[{label:'Print current view',accelerator:'CmdOrCtrl+P',click:()=>window?.webContents.print({printBackground:true})},{type:'separator'},{label:'Quit',accelerator:'CmdOrCtrl+Q',click:()=>app.quit()}]},
     {label:'Edit',submenu:[{role:'undo'},{role:'redo'},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},
+    {label:'Help',submenu:[{label:'App updates…',click:()=>updates.open()}]},
     {label:'View',submenu:[{role:'reload'},{role:'resetZoom'},{role:'zoomIn'},{role:'zoomOut'},{role:'togglefullscreen'}]}
   ]));
   const base=app.isPackaged?process.resourcesPath:path.join(__dirname,'..','.build-resources');
   const python=process.platform==='win32'?path.join(base,'python','python.exe'):process.env.BACKWOODS_TEST_PYTHON||'python3';
   const backend=app.isPackaged?path.join(base,'backend'):path.join(__dirname,'..');
-  window=new BrowserWindow({width:1480,height:1000,minWidth:1050,minHeight:700,title:'Backwoods Business Accounting',backgroundColor:'#f5f5ef',icon:path.join(__dirname,'icon.ico'),webPreferences:{contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  window=new BrowserWindow({width:1480,height:1000,minWidth:1050,minHeight:700,title:'Backwoods Business Accounting',backgroundColor:'#f5f5ef',icon:path.join(__dirname,'icon.ico'),webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   await window.loadURL('data:text/html;charset=utf-8,'+encodeURIComponent('<html><body style="margin:0;background:#153e35;color:#fff;display:grid;place-content:center;height:100vh;font:16px system-ui"><h1>Backwoods</h1><p>Opening your company books…</p></body></html>'));
   if(!remote){
   let pending='',logs='';

@@ -2,10 +2,14 @@ appId: com.backwoods.businessaccounting
 productName: Backwoods Business Accounting
 electronVersion: 45.2.2
 asar: true
+beforePack: ./scripts/updater_pack_hook.cjs
+afterPack: ./scripts/windows_icon_hook.cjs
 directories:
   app: desktop
   output: dist/windows
 files:
+  - updater/**/*
+  - preload.cjs
   - main.cjs
   - company-server.cjs
   - icon.ico

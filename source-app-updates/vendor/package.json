@@ -3,7 +3,7 @@
   "author": "Backwoods Brew",
   "type": "module",
   "main": "electron/main.cjs",
-  "version": "4.1.4",
+  "version": "4.1.6",
   "private": true,
   "productName": "Backwoods Vendor Ordering Connected",
   "description": "Backwoods Vendor Ordering with one-way Business Accounting connection",
@@ -36,6 +36,8 @@
       "createStartMenuShortcut": true,
       "deleteAppDataOnUninstall": false
     },
-    "artifactName": "Backwoods-Vendor-Ordering-Connected-Setup-${version}.${ext}"
+    "artifactName": "Backwoods-Vendor-Ordering-Connected-Setup-${version}.${ext}",
+    "afterPack": "./scripts/windows_icon_hook.cjs",
+    "beforePack": "./scripts/updater_pack_hook.cjs"
   }
 }
