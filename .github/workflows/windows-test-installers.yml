@@ -51,10 +51,18 @@ jobs:
       - name: Validate merged permissions with the Firestore emulator
         shell: pwsh
         run: |
-          npm ci --prefix tests/firebase-rules --no-audit --no-fund
-          if ($LASTEXITCODE -ne 0) { throw 'Rule-test dependencies failed' }
-          & tests/firebase-rules/node_modules/.bin/firebase.cmd emulators:exec --only firestore --project demo-backwoods-accounting --config tests/firebase-rules/firebase.json 'node tests/firebase-rules/rules.test.cjs'
-          if ($LASTEXITCODE -ne 0) { throw 'Firestore permissions checks failed' }
+          $ErrorActionPreference = 'Continue'
+          function Show-CheckFailure($file) {
+            Get-Content $file -Tail 35 | ForEach-Object {
+              $line = $_.ToString().Replace('%','%25').Replace("`r",'%0D').Replace("`n",'%0A')
+              Write-Output "::error::$line"
+            }
+            exit 1
+          }
+          npm ci --prefix tests/firebase-rules --no-audit --no-fund 2>&1 | Tee-Object rule-dependencies.log
+          if ($LASTEXITCODE -ne 0) { Show-CheckFailure rule-dependencies.log }
+          & tests/firebase-rules/node_modules/.bin/firebase.cmd emulators:exec --only firestore --project demo-backwoods-accounting --config tests/firebase-rules/firebase.json 'node tests/firebase-rules/rules.test.cjs' 2>&1 | Tee-Object rule-check.log
+          if ($LASTEXITCODE -ne 0) { Show-CheckFailure rule-check.log }
       - name: Build all three Windows installers
         shell: pwsh
         run: |
