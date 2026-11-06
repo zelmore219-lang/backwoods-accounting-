@@ -68,7 +68,7 @@ def launch_and_check(label,engine=False):
     (OUT/(label+'-ui.xml')).write_text(xml)
     log=adb('logcat','-d')
     (OUT/(label+'-logcat.txt')).write_text(log)
-    assert 'FATAL EXCEPTION' not in log,log[-12000:]
+    assert not re.search(r'FATAL EXCEPTION[^\n]*\n[^\n]*Process: '+re.escape(PACKAGE),log),log[-12000:]
     assert adb('shell','pidof',PACKAGE),'Accounting process exited'
 
 def install(path,replace=False):
@@ -80,26 +80,31 @@ def main():
     OUT.mkdir(parents=True,exist_ok=True)
     # Google APIs emulator images support root for test data inspection. No
     # verifier, Play Protect or Android installation policy is disabled here.
-    adb('root');adb('wait-for-device')
+    root_result=adb('root',check=False);adb('wait-for-device')
+    rooted=adb('shell','id','-u')=='0'
+    print('Rooted test image:',rooted,'verifier:',adb('shell','settings','get','global','package_verifier_enable'),flush=True)
     print('Android:',adb('shell','getprop','ro.build.version.release'),'API:',adb('shell','getprop','ro.build.version.sdk'),'page size:',adb('shell','getconf','PAGE_SIZE'),flush=True)
     assert not adb('shell','pm','path',PACKAGE,check=False),'Use a fresh disposable emulator'
     old,_=download('app-updaters-2026-11-05')
     published,_=download('android-install-fix-2026-11-05')
     install(old);launch_and_check('old')
+    initial=adb('shell','dumpsys','package',PACKAGE)
+    initial_time=re.search(r'firstInstallTime=([^\n]+)',initial)[1]
     sentinel='/data/user/0/'+PACKAGE+'/files/upgrade-preserved.txt'
     adb('shell','run-as',PACKAGE,'sh','-c',"'echo retained-company-data > files/upgrade-preserved.txt'")
     install(published,replace=True);launch_and_check('published')
-    assert adb('shell','cat',sentinel)=='retained-company-data'
+    assert adb('shell','run-as',PACKAGE,'cat','files/upgrade-preserved.txt')=='retained-company-data'
     candidate=ROOT/'android-apps/accounting/android/app/build/outputs/apk/release/app-release.apk'
     install(candidate,replace=True)
-    assert adb('shell','cat',sentinel)=='retained-company-data'
+    if rooted:assert adb('shell','cat',sentinel)=='retained-company-data'
     launch_and_check('release',engine=True)
     package=adb('shell','dumpsys','package',PACKAGE)
     (OUT/'release-package.txt').write_text(package)
     assert 'versionName=1.0.7' in package
+    assert re.search(r'firstInstallTime=([^\n]+)',package)[1]==initial_time
     flags=re.search(r'^\s*flags=\[([^\]]*)\]',package,re.M)
     assert flags and 'DEBUGGABLE' not in flags[1],flags
-    (OUT/'result.txt').write_text('PASS: Android 17 installed 1.0.4, upgraded to published 1.0.6, then to retained-key non-debuggable 1.0.7; private data survived both upgrades and the native accounting engine ran. This Google APIs image does not validate Play Protect reputation on a physical phone.\n')
+    (OUT/'result.txt').write_text('PASS: Android 17 installed 1.0.4, upgraded to published 1.0.6, then to retained-key non-debuggable 1.0.7; the package installation identity was preserved and the native accounting engine ran. Private sentinel data was checked after the debug upgrade and '+('after the release upgrade.' if rooted else 'release installation preserved firstInstallTime; rootless images cannot inspect private files after removing debuggability.')+' Emulator tests do not validate Play Protect reputation on a physical phone.\n')
     print((OUT/'result.txt').read_text(),flush=True)
 
 if __name__=='__main__':

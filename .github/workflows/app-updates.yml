@@ -6,6 +6,11 @@ on:
         description: 'Test Accounting upgrades and the release APK on Android 17 without publishing'
         default: false
         type: boolean
+      accounting_image:
+        description: 'Android 17 test images'
+        type: choice
+        default: all
+        options: [all, google_apis_playstore]
       release_tag:
         description: 'New package release tag (leave blank for apps-RUN_NUMBER)'
         required: false
@@ -33,7 +38,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: backwoods-app-updates
+  group: ${{ inputs.accounting_device_check && format('accounting-device-{0}', github.run_id) || 'backwoods-app-updates' }}
   cancel-in-progress: false
 jobs:
   build:
@@ -148,7 +153,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [google_apis, google_apis_ps16k]
+        target: ${{ fromJSON(inputs.accounting_image == 'google_apis_playstore' && '["google_apis_playstore"]' || '["google_apis", "google_apis_ps16k"]') }}
     steps:
       - uses: actions/checkout@v4
         with:
