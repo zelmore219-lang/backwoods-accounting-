@@ -1,7 +1,7 @@
 {
   "name": "backwoods-business-accounting",
   "productName": "Backwoods Business Accounting",
-  "version": "1.0.7",
+  "version": "1.0.6",
   "private": true,
   "description": "One company ledger, retail and wholesale accounting, costing, fixed assets, and connected payroll.",
   "author": "Backwoods Brew",

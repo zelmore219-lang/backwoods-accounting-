@@ -19,20 +19,13 @@ android {
         }
     }
     compileSdk 35
-    buildTypes {
-        release {
-            signingConfig signingConfigs.debug
-            debuggable false
-            minifyEnabled false
-        }
-    }
     testOptions { unitTests.includeAndroidResources = true }
     defaultConfig {
         applicationId 'com.backwoodsbrew.accounting'
         minSdk 24
         targetSdk 35
-        versionCode 10007
-        versionName '1.0.7'
+        versionCode 10006
+        versionName '1.0.6'
         ndk { abiFilters 'arm64-v8a', 'x86_64' }
     }
     compileOptions {

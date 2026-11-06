@@ -57,7 +57,7 @@ def build(tag,out,reuse_accounting=False):
         version=json.loads((project/'package.json').read_text())['version']
         win=ROOT/'dist/windows' if kind=='accounting' else ROOT/'dist/source-app-updates'/kind
         source=win/f'{prefix}-Setup-{version}.exe'
-        apk=ROOT/'android-apps'/kind/('android/app/build/outputs/apk/release/app-release.apk' if kind=='accounting' else 'android/app/build/outputs/apk/debug/app-debug.apk')
+        apk=ROOT/'android-apps'/kind/'android/app/build/outputs/apk/debug/app-debug.apk'
         if kind=='accounting' and retained:
             if any(retained[0][platform]['version']!=version for platform in ['windows','android']):raise ValueError('Keep the existing Accounting version when reusing its packages')
             source=retained[1]['windows'];apk=retained[1]['android']
@@ -72,7 +72,7 @@ def build(tag,out,reuse_accounting=False):
         abis=re.findall(r"'([^']+)'",native[1]) if native else ['arm64-v8a','armeabi-v7a','x86','x86_64']
         if source.read_bytes()[:2]!=b'MZ':raise ValueError('Not a Windows installer')
         win_out=out/source.name;shutil.copy2(source,win_out)
-        apk_name=('Backwoods-Vendor-Connected' if kind=='vendor' else prefix)+f'-{version}-'+('release.apk' if kind=='accounting' and not retained else 'test.apk')
+        apk_name=('Backwoods-Vendor-Connected' if kind=='vendor' else prefix)+f'-{version}-test.apk'
         apk_out=out/apk_name;shutil.copy2(apk,apk_out)
         def artifact(p):
             digest=sha(p);checks.append(digest+'  '+p.name);return {'version':version,'url':f'https://github.com/{REPO}/releases/download/{tag}/{p.name}','sha256':digest,'size':p.stat().st_size}
