@@ -82,8 +82,24 @@ Function .onInit
   continueInstall:
 FunctionEnd
 
+Function EnsureAccountingWritable
+  retryAccountingClose:
+  IfFileExists "$INSTDIR\\Backwoods Business Accounting.exe" 0 accountingWritable
+  ; Open the existing executable exclusively without changing its contents.
+  ; A running tray process prevents this write handle from being acquired.
+  System::Call 'kernel32::CreateFileW(w "$INSTDIR\\Backwoods Business Accounting.exe", i 0x40000000, i 0, p 0, i 3, i 0, p 0) p .r0'
+  StrCmp $0 -1 accountingLocked
+  System::Call 'kernel32::CloseHandle(p r0)'
+  Goto accountingWritable
+  accountingLocked:
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "Windows cannot replace Backwoods Business Accounting.exe yet.$\\r$\\n$\\r$\\nSave your work, choose File > Quit or Exit from the system-tray icon, then click Retry. Closing the window may leave the app running in the tray.$\\r$\\n$\\r$\\nIf it is already closed, check that your Windows account can write to this installation folder. No program files have been replaced." IDRETRY retryAccountingClose
+  Abort
+  accountingWritable:
+FunctionEnd
+
 Section "Business Accounting" SEC_APP
   SetShellVarContext current
+  Call EnsureAccountingWritable
   SetOutPath "$INSTDIR"
   File /r "{q(app_dir)}/*"
   WriteUninstaller "$INSTDIR\\Uninstall.exe"

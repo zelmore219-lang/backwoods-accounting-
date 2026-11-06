@@ -115,7 +115,7 @@ jobs:
           (cd android-apps/vendor && node_modules/.bin/cap sync android)
       - name: Build Android APKs and native updater tests
         run: |
-          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testReleaseUnitTest assembleRelease)
           (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
           (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
       - name: Build Windows installers
