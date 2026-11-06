@@ -1,6 +1,6 @@
 {
-  "versionName": "8.2.5",
-  "versionCode": 80205,
+  "versionName": "8.2.7",
+  "versionCode": 80207,
   "source": "main",
   "accountingRoute": "authenticated Firebase accounting snapshots; automatic server ingestion after one-time deployment"
 }

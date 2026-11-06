@@ -6,7 +6,7 @@ const os=require('node:os');
 const path=require('node:path');
 const vm=require('node:vm');
 const {EventEmitter}=require('node:events');
-const {prepareProfile,MARKER}=require('../connectors/connected-profile.cjs');
+const {prepareProfile,prepareProfileWithChooser,MARKER}=require('../connectors/connected-profile.cjs');
 const ROOT=path.resolve(__dirname,'..');
 const {companyServer}=require('../desktop/company-server.cjs');
 const config={originalLabel:'Original app',connectedProfile:'Connected app',originalProfiles:['Original app','old-name'],originalExecutables:['Original app.exe']};
@@ -48,6 +48,28 @@ test('running original app blocks profile copying',()=>{
 });
 test('ambiguous original profiles do not get selected silently',()=>{
   const f=fixture();try{source(f);source(f,'old-name');assert.throws(()=>prepareProfile(f,config,{env:{},platform:'linux'}),/More than one/);assert(!fs.existsSync(path.join(f.folder,config.connectedProfile)));}finally{f.cleanup();}
+});
+test('ambiguous Main profiles are copied only after an explicit chooser selection',async()=>{
+  const f=fixture();try{
+    const first=source(f),second=source(f,'old-name');fs.writeFileSync(path.join(second,'Local Storage','records.json'),'chosen records');
+    f.dialog.showMessageBox=async options=>{f.messages.push(options);return {response:1};};
+    const result=await prepareProfileWithChooser(f,config,{env:{},platform:'linux'});
+    assert.equal(result.mode,'copied-original-profile');
+    assert.equal(fs.readFileSync(path.join(result.directory,'Local Storage','records.json'),'utf8'),'chosen records');
+    assert.equal(JSON.parse(fs.readFileSync(path.join(result.directory,MARKER))).sourceProfile,second);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(first,'Local Storage','records.json'))).sales[0].id,'sale-1');
+    assert.equal(fs.readFileSync(path.join(second,'Local Storage','records.json'),'utf8'),'chosen records');
+    assert(f.messages[0].detail.includes('Local data last changed:'));
+    f.dialog.showMessageBox=async()=>{throw Error('Existing connected profiles must not ask again');};
+    await prepareProfileWithChooser(f,config,{env:{},platform:'linux'});
+  }finally{f.cleanup();}
+});
+test('cancelling the profile chooser leaves every profile untouched',async()=>{
+  const f=fixture();try{
+    source(f);source(f,'old-name');f.dialog.showMessageBox=async()=>({response:2});
+    const result=await prepareProfileWithChooser(f,config,{env:{},platform:'linux'});
+    assert.equal(result.cancelled,true);assert.equal(f.exited,0);assert(!fs.existsSync(path.join(f.folder,config.connectedProfile)));
+  }finally{f.cleanup();}
 });
 test('existing unmarked connected data is preserved and blocks startup',()=>{
   const f=fixture();try{const target=path.join(f.folder,config.connectedProfile);fs.mkdirSync(target);fs.writeFileSync(path.join(target,'important'),'keep');assert.throws(()=>prepareProfile(f,config,{env:{},platform:'linux'}),/already contains files/);assert.equal(fs.readFileSync(path.join(target,'important'),'utf8'),'keep');}finally{f.cleanup();}

@@ -3,7 +3,7 @@
   "author": "Backwoods Brew",
   "type": "module",
   "main": "electron/main.cjs",
-  "version": "8.2.5",
+  "version": "8.2.7",
   "private": true,
   "productName": "Backwoods Brew Connected",
   "description": "Backwoods Brew with one-way Business Accounting connection",

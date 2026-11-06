@@ -9,6 +9,7 @@ android {
             res.srcDir rootProject.file('../../shared-updater/src/main/res')
         }
     }
+    sourceSets.test.java.srcDir rootProject.file('../../shared-updater/src/test/java')
     signingConfigs {
         debug {
             storeFile rootProject.file('../../../.build-resources/android-signing/debug.keystore')
@@ -18,12 +19,13 @@ android {
         }
     }
     compileSdk rootProject.ext.compileSdkVersion
+    testOptions { unitTests.includeAndroidResources = true }
     defaultConfig {
         applicationId "com.backwoodsbrew.main.connected"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 80205
-        versionName '8.2.5'
+        versionCode 80207
+        versionName '8.2.7'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -52,6 +54,7 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
+    testImplementation 'org.robolectric:robolectric:4.16.1'
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

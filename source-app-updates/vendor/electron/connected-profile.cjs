@@ -72,4 +72,37 @@ function prepareProfile({app,dialog},config,options={}) {
     throw error;
   }
 }
-module.exports={prepareProfile,copyProfile,MARKER};
+function profileDate(folder) {
+  let modified=0,visited=0;
+  const scan=(item,depth)=>{
+    if(depth>6||visited++>3000||!fs.existsSync(item))return;
+    const stat=fs.lstatSync(item);if(stat.isSymbolicLink())return;
+    if(stat.isFile())modified=Math.max(modified,stat.mtimeMs);
+    else if(stat.isDirectory())for(const name of fs.readdirSync(item))scan(path.join(item,name),depth+1);
+  };
+  for(const name of ['Local Storage','IndexedDB','Preferences'])scan(path.join(folder,name),0);
+  return modified?new Date(modified).toLocaleString():'Unknown';
+}
+
+async function prepareProfileWithChooser(api,config,options={}) {
+  const {app,dialog}=api,env=options.env||process.env;
+  const appData=app.getPath('appData');
+  const target=path.resolve(env.BACKWOODS_TEST_DATA_DIR||path.join(appData,config.connectedProfile));
+  // Existing connected profiles and explicit overrides keep their established behavior.
+  if(env.BACKWOODS_TEST_DATA_DIR||env.BACKWOODS_SOURCE_PROFILE||populated(target))return prepareProfile(api,config,options);
+  const present=config.originalProfiles.map(name=>path.join(appData,name)).filter(populated);
+  if(present.length<2)return prepareProfile(api,config,options);
+  // Native dialogs need app readiness. Keep the bootstrap session away from
+  // every source profile; Main opens its selected profile with session.fromPath.
+  const bootstrap=path.join(appData,'.backwoods-profile-setup',config.connectedProfile);
+  fs.mkdirSync(bootstrap,{recursive:true});
+  app.setPath('userData',bootstrap);app.setPath('sessionData',bootstrap);
+  await app.whenReady();
+  const choice=await dialog.showMessageBox({type:'question',title:config.originalLabel+' — choose previous profile',
+    message:'Which previous app profile contains the records you want to copy?',
+    detail:present.map((folder,index)=>(index+1)+'. '+folder+'\n   Local data last changed: '+profileDate(folder)).join('\n')+'\n\nOnly the selected profile will be copied into the Connected edition. Original files are preserved. If you are unsure, cancel and check the original app first.',
+    buttons:[...present.map(folder=>path.basename(folder)),'Cancel'],defaultId:present.length,cancelId:present.length,noLink:true});
+  if(!Number.isInteger(choice?.response)||choice.response<0||choice.response>=present.length){app.exit(0);return {directory:target,mode:'cancelled-profile-selection',cancelled:true};}
+  return prepareProfile(api,config,{...options,env:{...env,BACKWOODS_SOURCE_PROFILE:present[choice.response]}});
+}
+module.exports={prepareProfile,prepareProfileWithChooser,copyProfile,MARKER};

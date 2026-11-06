@@ -4,11 +4,11 @@ Main, Vendor and Business Accounting now use one public update feed, with separa
 
 `https://github.com/zelmore219-lang/backwoods-accounting-/releases/download/app-updates/backwoods-updates.json`
 
-Install an updater-enabled version manually once: Main 8.2.5, Vendor 4.1.6 or Accounting 1.0.4. The updater cannot add itself to an older installed app. Back up and close the Windows app before that first installation. Keep existing Android installations and data; do not uninstall to bypass a signing conflict.
+For Windows, install Main 8.2.6, Vendor 4.1.7 or Accounting 1.0.5 manually once. These versions fix Electron redirect handling; the earlier Windows updater builds cannot load GitHub release redirects correctly. Android versions Main 8.2.5, Vendor 4.1.6 and Accounting 1.0.4 can receive the newer APKs through their existing native update screen. The updater cannot add itself to an older installed app. Back up and close the Windows app before that first installation. Keep existing Android installations and data; do not uninstall to bypass a signing conflict.
 
 ## In the app
 
-Open **App updates**. Windows Accounting also has **Help → App updates**. Android Accounting has an **Updates** button in its books toolbar and sign-in screen. Main and Vendor have an **App updates** button in their sidebar (or on the sign-in screen).
+Open **App updates**. Windows Accounting also has **Help → App updates**. Android Accounting has an **Updates** button in its books toolbar and sign-in screen. Main and Vendor expose **App updates** only inside **Settings**; there is no floating or sign-in update button.
 
 The wizard shows the current and latest versions, the update feed and download progress. Use **Check**, **Download**, then **Install**. **Enabled** controls background checks; **Auto-download** is optional and off by default. Windows checks at startup and every six hours while running. Android checks when the app opens, at most once every six hours. Background checks require Internet access. Installation always requires approval.
 
@@ -43,3 +43,11 @@ The Windows icon and shared updater packaging hooks are included in standard ins
 ## Validation limits
 
 Local automated checks cover update-policy rejection, native IPC isolation, checksums, damaged downloads, installation approval, the browser wizard and Android policy rules. APK identities/signatures and packaged Windows resources are inspected. Windows setup execution, Android package installation and physical-device operation require device testing before production rollout. The current signing identity is for test releases; production signing needs a planned migration and key custody.
+
+For a Main/Vendor-only release, keep Accounting’s version unchanged and enable **Keep the exact published Accounting packages** in the workflow. Its existing signed downloads are checksum-verified and reused byte-for-byte, so Accounting users are not offered an unrelated update.
+
+If Main finds multiple legacy Windows profiles, its first-launch chooser lists their folder names and local-data modification dates. Choose the profile whose records you intend to copy, or cancel. The originals are not merged, changed or deleted. A successful choice is remembered by the connected-profile marker.
+
+Android Main 8.2.7, Vendor 4.1.8 and Accounting 1.0.6 fix the installer handoff. The updater has a distinct FileProvider component, attaches the APK URI as ClipData with a temporary read grant, resumes after the per-app installation permission is granted, and shows verification/handoff failures in a dialog. If an older app downloads an update but cannot open its installer, open the matching release APK from a browser once and choose Update. Preserve the installed app and its data; do not uninstall. Shared Robolectric tests exercise the merged manifests, APK URI readability and isolation of private records in all three apps.
+
+The Windows Accounting installer checks that its executable can be opened for replacement before extracting program files. If the app is still running in the tray, save work and use File → Quit or the tray menu’s Exit, then retry. No app process is force-terminated.
