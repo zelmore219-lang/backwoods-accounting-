@@ -14,7 +14,7 @@
             </intent-filter>
         </activity>
             <activity android:name="com.backwoodsbrew.updates.UpdaterActivity" android:exported="false" android:theme="@style/AppTheme" />
-        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true">
+        <provider android:name="com.backwoodsbrew.updates.UpdateFileProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/backwoods_update_paths" />
         </provider>
     </application>

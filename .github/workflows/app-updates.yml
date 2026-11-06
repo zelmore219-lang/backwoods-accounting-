@@ -111,8 +111,8 @@ jobs:
       - name: Build Android APKs and native updater tests
         run: |
           (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
-          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 assembleDebug)
-          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 assembleDebug)
+          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
+          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
       - name: Build Windows installers
         run: |
           NSIS_COMPILER="$(cat .build-tools/nsis-path.txt)"
