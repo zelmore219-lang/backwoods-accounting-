@@ -30,8 +30,8 @@ def download(tag):
     return path,artifact['version']
 
 def hierarchy():
-    adb('shell','uiautomator','dump','/sdcard/accounting-test.xml')
-    return adb('shell','cat','/sdcard/accounting-test.xml')
+    adb('shell','uiautomator','dump','/sdcard/accounting-test.xml',check=False)
+    return adb('shell','cat','/sdcard/accounting-test.xml',check=False)
 
 def wait_text(value,seconds=40):
     deadline=time.monotonic()+seconds
@@ -41,6 +41,19 @@ def wait_text(value,seconds=40):
         time.sleep(1)
     raise AssertionError('Android UI did not show: '+value+'\n'+text)
 
+def click_text(value):
+    for _ in range(4):
+        xml=hierarchy()
+        if '<hierarchy' in xml:
+            for node in ET.fromstring(xml).iter('node'):
+                if node.get('text')==value:
+                    x1,y1,x2,y2=map(int,re.findall(r'\d+',node.get('bounds')))
+                    if x2>x1 and y2>y1:
+                        adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2));return
+        width,height=map(int,re.findall(r'(\d+)x(\d+)',adb('shell','wm','size'))[-1])
+        adb('shell','input','swipe',str(width//2),str(height*8//10),str(width//2),str(height*3//10),'350')
+    raise AssertionError('Android button was not accessible: '+value)
+
 def launch_and_check(label,engine=False):
     adb('shell','am','force-stop',PACKAGE)
     adb('logcat','-c')
@@ -48,9 +61,7 @@ def launch_and_check(label,engine=False):
     assert 'Error' not in result,result
     xml=wait_text('Sign in to your company')
     if engine:
-        node=next(n for n in ET.fromstring(xml).iter('node') if n.get('text')=="Open this device's saved books")
-        x1,y1,x2,y2=map(int,re.findall(r'\d+',node.get('bounds')))
-        adb('shell','input','tap',str((x1+x2)//2),str((y1+y2)//2))
+        click_text("Open this device's saved books")
         # A fresh emulator has no company account. This error is returned only
         # after Python, SQLite and the local accounting engine have started.
         xml=wait_text('Sign in to Firebase and create the company owner account first.',60)
@@ -71,7 +82,7 @@ def main():
     # verifier, Play Protect or Android installation policy is disabled here.
     adb('root');adb('wait-for-device')
     print('Android:',adb('shell','getprop','ro.build.version.release'),'API:',adb('shell','getprop','ro.build.version.sdk'),'page size:',adb('shell','getconf','PAGE_SIZE'),flush=True)
-    assert not adb('shell','pm','path',PACKAGE),'Use a fresh disposable emulator'
+    assert not adb('shell','pm','path',PACKAGE,check=False),'Use a fresh disposable emulator'
     old,_=download('app-updaters-2026-11-05')
     published,_=download('android-install-fix-2026-11-05')
     install(old);launch_and_check('old')
