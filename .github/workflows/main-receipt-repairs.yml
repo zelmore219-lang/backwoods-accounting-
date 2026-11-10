@@ -36,6 +36,9 @@ jobs:
           node desktop/node_modules/electron/install.js
           desktop/node_modules/electron/dist/electron --no-sandbox --disable-dev-shm-usage --disable-gpu --ozone-platform=headless scripts/main_native_receipt_smoke.cjs
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Restore retained Main signing identity
         env:
           SIGNING_KEY: ${{ secrets.ANDROID_UPDATE_KEYSTORE_BASE64 }}

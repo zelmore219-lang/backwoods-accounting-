@@ -16,6 +16,7 @@ This repairs the existing Main app from `79c8ca8814efc8c96e12209534ebc0ead6025a5
 - Actual Main bundle tested in Chromium using an isolated test company and the existing local-login path. A real POS transaction saved, depleted recipe inventory, produced a complete receipt, and reprinted from receipt history. Pop-up creation was blocked during the test. The accounting export retained the order and balanced ledger; existing wholesale-storage bytes were preserved. Browser iframe printing and Windows-bridge cancellation were exercised. Desktop and narrow-screen previews were captured.
 - Real Electron rendered a nonblank receipt PDF through its native print engine. Extracted PDF text includes the transaction and payment values. The native handler waits for rendering before calling system printing and handles cancellation.
 - Windows installer built with Main 8.2.9 and its updated renderer/native print code.
+- Android Main compiled, including the new print plugin. All three existing native tests passed. Device printer selection still needs a physical-device check.
 
 Test evidence is generated under `test-results/main-receipts/`. Reproduce with:
 
