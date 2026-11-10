@@ -450,28 +450,6 @@ ipcMain.handle("open-user-data", async () => {
   return true;
 });
 
-ipcMain.handle("print-receipt", async (_event, payload) => {
-  const win = BrowserWindow.getFocusedWindow();
-  if (!win) return { ok: false, error: "No focused window" };
-
-  const printWin = new BrowserWindow({
-    show: false,
-    width: 380,
-    height: 700,
-    webPreferences: { contextIsolation: true }
-  });
-
-  const text = typeof payload === "string" ? payload : JSON.stringify(payload, null, 2);
-  const html = `<html><body><pre style="font-family:monospace;font-size:12px;white-space:pre-wrap;">${String(text).replace(/[&<>]/g, s => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;" }[s]))}</pre></body></html>`;
-
-  await printWin.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
-
-  return new Promise((resolve) => {
-    printWin.webContents.print({ silent: false, printBackground: true }, (success, errorType) => {
-      printWin.close();
-      resolve({ ok: success, error: errorType || "" });
-    });
-  });
-});
+require('./receipt-printer.cjs').registerReceiptPrinter({ipcMain,BrowserWindow});
 
 require('./desktop-feed.cjs');
