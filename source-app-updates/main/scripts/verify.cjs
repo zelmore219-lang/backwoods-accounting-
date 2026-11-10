@@ -1,1 +1,6 @@
-const fs=require('fs');const assert=require('assert');const path=require('path');const root=path.resolve(__dirname,'..');const html=fs.readFileSync(path.join(root,'www/index.html'),'utf8');for(const name of ['wholesale.js','wholesale.css']){const count=(html.match(new RegExp('\\./'+name.replace('.','\\.'),'g'))||[]).length;assert.strictEqual(count,1,name+' must load exactly once');}for(const p of ['electron/main.cjs','electron/preload.cjs','www/wholesale.js','www/assets/main-CnsZnSKS.js'])assert(fs.existsSync(path.join(root,p)),p+' missing');console.log('PASS: essential files exist and wholesale assets load once');
+const fs=require('node:fs'),assert=require('node:assert/strict'),path=require('node:path');
+const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'www/index.html'),'utf8');
+for(const name of ['wholesale.js','wholesale-cloud.js','central-accounting-ui.mjs'])assert(!html.includes('src="./'+name+'"'),name+' embedded screen still loads');
+for(const name of ['firebase-accounting.js','wholesale-live-adapter.mjs','receipt.mjs'])assert(fs.existsSync(path.join(root,'www',name)));
+assert(html.includes('firebase-accounting.js'));assert(html.includes('wholesale-live-adapter.mjs'));
+console.log('PASS: embedded business screens removed; shared adapters and receipt module retained');

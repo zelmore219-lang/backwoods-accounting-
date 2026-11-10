@@ -113,9 +113,9 @@ test('prepared update packages include the profile helper, sender and renderer a
     assert(fs.existsSync(path.join(folder,kind==='main'?'www/index.html':'dist/index.html')));
   }
 });
-test('original retail and wholesale business logic is retained outside accounting-copy hooks and cost metadata',()=>{
+test('Main receipt repair bundle and unchanged wholesale bundle match reviewed baselines',()=>{
   const cases=[
-    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'56f226409966eae27e0127d72b670956b2d78731ebff4a5df2b955893906b0de'},
+    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'06401459736df487ae8e0096a9b1c1f274eb70d08c5b16a96056267f1bb1fdc1'},
     {kind:'vendor',file:'dist/assets/index-CWBa4KXx.js',sha:'7b639f76f6c0a6d541895bc4a6753d33ad237c7b4ac9074d7dcc260225043ec1'},
   ];
   for(const item of cases){

@@ -1,3 +1,4 @@
+import {receiptText as savedReceiptText,receiptBusiness as savedReceiptBusiness,previewReceipt} from "../receipt.mjs";
 import { t as Vs, q as od, e as Qs, a as Ba, u as rd, k as sd, o as id, j as cd, l as dd, b as it, R as e, r as j, S as Sa, L as md, m as ro, i as Ra, n as $l, c as Ll, f as oa, s as rn, g as ud, h as vl, d as pd } from "./index-DXWT0E9w.js";
 const gd = "backwoodsbrew-e3584-d52a3.firebaseapp.com",
   Kr = "backwoods-brew-user-admin";
@@ -2266,18 +2267,6 @@ function pe(t) {
     In(t, "force-persist-fix");
   } catch {}
   return t;
-}
-function ds(t, n) {
-  const a = window.open("", "_blank", "width=420,height=720");
-  return a ? (a.document.open(), a.document.write(`<!doctype html><html><head><title>${t}</title><style>
-    body{font-family:monospace;margin:0;padding:16px;color:#000;background:#fff;}
-    pre{white-space:pre-wrap;font-size:12px;}
-    .no-print{margin-top:16px;}
-    button{font-size:14px;padding:8px 12px;margin-right:8px;}
-    @media print{.no-print{display:none}}
-  </style></head><body>${n}<div class="no-print"><button onclick="window.print()">Print</button><button onclick="window.close()">Close</button></div><script>
-    window.onload=function(){ setTimeout(function(){ window.focus(); window.print(); }, 450); };
-  <\/script></body></html>`), a.document.close(), !0) : (alert("Popup blocked. Allow popups to print receipts."), !1);
 }
 function vi(t) {
   const n = String(t || "").toLowerCase();
@@ -9734,22 +9723,7 @@ function Gu(t, n = C(), a = 1, l = {}) {
 function Yu(t, n) {
   return Ya(t, n);
 }
-function Jo(t, n, a = "customer") {
-  var d;
-  const l = Ee(t, n.storeId || 1),
-    r = Yu(t, n.storeId || 1),
-    s = "-".repeat(32),
-    o = (n.items || []).flatMap(m => {
-      var v, w;
-      const f = ((v = m.size) == null ? void 0 : v.name) || ((w = m.size) == null ? void 0 : w.label) || "",
-        y = (m.mods || []).map(I => `   + ${I.name} ${_(I.price)}`);
-      return [`${m.name}`, `   ${f}  ${_(m.lineTotal || Yn(m))}`, ...y];
-    }),
-    i = [((d = t.settings) == null ? void 0 : d.businessName) || "Backwoods Brew", l, new Date(n.createdAt || n.date || q()).toLocaleString(), `Receipt #${n.id}`, n.pickupName ? `Customer: ${n.pickupName}` : "", `Cashier: ${n.cashier || ""}`, s].filter(Boolean),
-    c = [s, `Subtotal: ${_(n.subtotal)}`, u(n.discountAmount) > 0 ? `Discount: -${_(n.discountAmount)}` : "", `Tax:      ${_(n.tax)}`, `Total:    ${_(n.total)}`, `Payment:  ${n.paymentType || "Cash"}`, n.paymentType === "Cash" ? `Tendered: ${_(n.amountTendered)}` : "", n.paymentType === "Cash" ? `Change:   ${_(n.changeDue)}` : "", n.paymentType === "Split" ? `Split: Cash ${_(n.splitCash)} / Card ${_(n.splitCard)}` : "", n.loyaltyCode ? `Loyalty: ${n.loyaltyCode} +${u(n.pointsEarned)} pts` : "", n.couponCode ? `Coupon:  ${n.couponCode}` : "", n.qrReceiptCode ? `QR Code: ${n.qrReceiptCode}` : "", s, a === "kitchen" ? "*** KITCHEN TICKET ***" : "Thank you for supporting us!", r.receiptPrinter ? `Printer: ${a === "kitchen" && r.kitchenPrinter || r.receiptPrinter}` : ""].filter(Boolean);
-  return [...i, ...o, ...c].join(`
-`);
-}
+function Jo(t,n,a="customer"){return savedReceiptText(t,n);}
 function Xo(t, n) {
   const a = Ee(t, n.storeId || 1),
     l = "-".repeat(32),
@@ -9761,50 +9735,7 @@ function Xo(t, n) {
   return ["*** BACKWOODS BREW KITCHEN ***", a, n.pickupName ? `Customer: ${n.pickupName}` : "", n.preorderPickupAt ? `Pickup: ${n.preorderPickupAt}` : "", `Order #${n.id}`, new Date(n.createdAt || n.date || q()).toLocaleString(), l, ...r, l, `Status: ${n.kitchenStatus || "New"}`].filter(Boolean).join(`
 `);
 }
-function kn(t, n) {
-  const l = String(n || "No receipt data available.").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
-    s = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>${String(t || "Print").replace(/[<>]/g, "")}</title>
-  <style>
-    html,body{margin:0;padding:0;background:white;color:black;font-family:"Courier New",Consolas,monospace;font-size:12px;line-height:1.35;}
-    .wrap{padding:12px;}
-    .controls{margin-bottom:12px;display:flex;gap:8px;}
-    button{padding:8px 12px;border:1px solid #111;background:#eee;cursor:pointer;font-weight:bold;}
-    pre.receipt{display:block;width:280px;max-width:280px;white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;margin:0;padding:0;color:black;background:white;font-family:"Courier New",Consolas,monospace;font-size:12px;line-height:1.35;}
-    @media print{.controls{display:none!important}.wrap{padding:0}pre.receipt{width:72mm;max-width:72mm;color:black!important;background:white!important}}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="controls">
-      <button id="printBtn" type="button">Print Again</button>
-      <button type="button" onclick="window.close()">Close</button>
-    </div>
-    <pre class="receipt" id="receiptText">${l}</pre>
-  </div>
-  <script>
-    function doPrint(){
-      var content=document.getElementById('receiptText');
-      if(!content || !content.innerText.trim()){ alert('Receipt text did not load yet.'); return; }
-      window.focus();
-      setTimeout(function(){ window.print(); }, 650);
-    }
-    document.getElementById('printBtn').addEventListener('click', doPrint);
-    window.addEventListener('load', doPrint);
-    window.onafterprint=function(){ /* keep window open so user can verify/print again */ };
-  <\/script>
-</body>
-</html>`,
-    o = window.open("", "_blank", "width=430,height=760");
-  if (!o) {
-    alert("Popup blocked. Allow popups for this app to print receipts.");
-    return;
-  }
-  o.document.open("text/html", "replace"), o.document.write(s), o.document.close();
-}
+function kn(t,n){try{return previewReceipt(t,n);}catch(error){alert("Receipt could not open: "+error.message+" Your transaction is still saved.");return null;}}
 function $s(t, n) {
   const a = new Blob([n], {
       type: "text/plain"
@@ -10060,7 +9991,7 @@ function _u({
         receiptText: "",
         kitchenTicketText: ""
       };
-    lt.receiptText = Jo(t, lt, "customer"), lt.kitchenTicketText = Xo(t, lt), n(O => {
+    lt.receiptBusiness = savedReceiptBusiness(t,lt), lt.receiptText = Jo(t, lt, "customer"), lt.kitchenTicketText = Xo(t, lt), n(O => {
       let Re = {
         ...O,
         orders: [...(O.orders || []), lt],
@@ -10090,7 +10021,10 @@ function _u({
           storeId: lt.storeId
         }]
       })), pe(Y(Re, `Completed ${i} POS sale ${_(lt.total)}${J ? ` for ${na(J)}` : ""}${v ? " and depleted inventory" : ""}`, "pos"));
-    }), confirm("Print customer receipt?") && kn("Receipt", lt.receiptText), confirm("Print kitchen ticket?") && kn("Kitchen Ticket", lt.kitchenTicketText);
+    });
+    const customerPrint = confirm("Print customer receipt?") ? kn("Receipt", lt.receiptText) : null;
+    const kitchenPrint = () => { if(confirm("Print kitchen ticket?"))kn("Kitchen Ticket",lt.kitchenTicketText); };
+    if(customerPrint)customerPrint.addEventListener('close',kitchenPrint,{once:true});else kitchenPrint();
     const pt = $u({
       ...t,
       inventory: Le.inventory
@@ -23195,18 +23129,8 @@ function vg({
   function s(d) {
     n(m => pe(xi(m, d)));
   }
-  function o(d) {
-    var f;
-    const m = [`${((f = t == null ? void 0 : t.settings) == null ? void 0 : f.businessName) || "Backwoods Brew"}`, `Order #${d.id}`, `Date: ${d.date || C()}`, `Payment: ${d.paymentType || ""}`, "", ...(d.items || []).map(y => `${y.name || "Item"} ${_(y.lineTotal || y.price || 0)}`), "", `Subtotal: ${_(d.subtotal || 0)}`, `Tax: ${_(d.tax || 0)}`, `Total: ${_(d.total || 0)}`].join("\\n");
-    ds("Receipt", `<pre>${m}</pre>`);
-  }
-  function i(d) {
-    const m = ["KITCHEN TICKET", `Order #${d.id}`, `Pickup: ${d.pickupName || "Walk-in"}`, "", ...(d.items || []).map(f => {
-      var y;
-      return `${f.name || "Item"} ${(y = f.size) != null && y.name ? `(${f.size.name})` : ""}`;
-    }), "", `Created: ${String(d.createdAt || "").slice(11, 16)}`].join("\\n");
-    ds("Kitchen Ticket", `<pre>${m}</pre>`);
-  }
+  function o(d) { return kn("Receipt",Jo(t,d,"customer")); }
+  function i(d) { return kn("Kitchen Ticket",Xo(t,d)); }
   const c = d => ({
     id: d.id,
     time: String(d.createdAt || "").slice(11, 16),
@@ -23291,7 +23215,7 @@ function bg({
   const l = Du(t.orders || [], a, t).filter(f => f.receiptQueueStatus !== "DONE" && !(f.receiptDone && f.kitchenDone)).slice().sort((f, y) => String(y.createdAt || y.date).localeCompare(String(f.createdAt || f.date))),
     [r, s] = j.useState(String(((m = l[0]) == null ? void 0 : m.id) || "")),
     o = l.find(f => String(f.id) === String(r)) || l[0],
-    i = o != null && o.receiptText && String(o.receiptText).trim() ? o.receiptText : o ? Jo(t, o, "customer") : "",
+    i = o ? Jo(t, o, "customer") : "",
     c = o != null && o.kitchenTicketText && String(o.kitchenTicketText).trim() ? o.kitchenTicketText : o ? Xo(t, o) : "";
   function d(f) {
     o && n(y => Y({
@@ -23378,7 +23302,7 @@ function bg({
         s(String(f.id));
       }
     }, "View"), e.createElement(G, {
-      onClick: () => kn("Receipt", f.receiptText || Jo(t, f, "customer"))
+      onClick: () => kn("Receipt", Jo(t, f, "customer"))
     }, "Reprint"), e.createElement(G, {
       onClick: () => kn("Kitchen Ticket", f.kitchenTicketText || Xo(t, f))
     }, "Kitchen"))

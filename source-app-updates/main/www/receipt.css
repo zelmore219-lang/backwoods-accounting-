@@ -1,0 +1,8 @@
+#bw-receipt-preview{box-sizing:border-box;width:min(96vw,440px);max-height:94vh;overflow:auto;border:1px solid #aaa;border-radius:10px;background:white;color:#111;padding:18px;font:14px system-ui}
+#bw-receipt-preview::backdrop{background:#0009}
+#bw-receipt-preview h2{font:700 20px system-ui;margin:0 0 12px}
+.bw-receipt-actions{display:flex;gap:10px;flex-wrap:wrap}
+.bw-receipt-actions button{background:#193d32;color:white;padding:10px 14px;border:0;border-radius:6px;cursor:pointer}
+#bw-receipt-preview pre{margin:16px 0 0;font:12px/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:black;background:white}
+.bw-receipt-print-frame{position:fixed;left:0;bottom:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none}
+@media print{body.bw-printing-receipt>:not(#bw-receipt-preview){display:none!important}#bw-receipt-preview{position:static!important;display:block!important;width:72mm;max-height:none;overflow:visible;border:0;border-radius:0;margin:0;padding:0}#bw-receipt-preview h2,#bw-receipt-preview .bw-receipt-actions,#bw-receipt-preview [role=status]{display:none!important}#bw-receipt-preview pre{margin:0}}
