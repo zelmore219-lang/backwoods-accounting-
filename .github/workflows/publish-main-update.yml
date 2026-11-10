@@ -1,0 +1,61 @@
+name: Publish tested Main 8.2.9 update
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/publish-main-8-2-9]
+    paths:
+      - .github/workflows/publish-main-update.yml
+      - scripts/publish_main_update.py
+      - tests/test_main_update_publication.py
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: backwoods-app-updates
+  cancel-in-progress: false
+jobs:
+  publish-main-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Prepare verification tools
+        run: sdkmanager 'build-tools;35.0.0'
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 42913704687
+          name: Backwoods-Main-8.2.9-receipt-repairs
+          path: dist/tested-main
+      - name: Verify Main-only feed changes
+        run: python -m unittest discover -s tests -p test_main_update_publication.py -v
+      - name: Publish verified packages, then activate Main feed entries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_main_update.py dist/tested-main
+      - name: Verify Windows updater detects the repair
+        run: |
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict'),updater=require('./connectors/updater/core.cjs');
+          const manifest=JSON.parse(fs.readFileSync('dist/tested-main/publication/backwoods-updates.json'));
+          const result=updater.select(manifest,'main','8.2.7');assert.equal(result.version,'8.2.9');assert.equal(result.available,true);
+          assert.equal(manifest.apps.main.android.version,'8.2.9');assert.equal(manifest.apps.main.android.versionCode,80209);
+          console.log('Main 8.2.9 detected on Windows and Android metadata.');
+          JS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Main-update-publication-evidence
+          path: dist/tested-main/publication/
+          retention-days: 30
