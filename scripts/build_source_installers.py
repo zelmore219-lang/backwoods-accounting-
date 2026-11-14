@@ -73,6 +73,7 @@ Function .onInit
     MessageBox MB_OK "This installer requires 64-bit Windows."
     Quit
   ${{EndIf}}
+  IfSilent proceed
   MessageBox MB_OKCANCEL "Back up your source app and close it before the first connected launch. This installs a separate Connected edition; it copies a detected old local profile and keeps the original intact." IDOK proceed
   Quit
   proceed:
