@@ -71,6 +71,8 @@ def sanitize_payload(payload,source):
         if isinstance(value,dict):return {k:clean(v) for k,v in value.items() if re.sub(r'[^a-z]','',k.lower()) not in forbidden}
         if isinstance(value,list):return [clean(v) for v in value]
         return value
+    if source=='employees':
+        return {key:clean(value) for key,value in payload.items() if key in {'schemaVersion','source','type','company','start','endExclusive','exportId','timesheets','timeOff','departments'}}
     result={key:clean(value) for key,value in data.items() if key in financial}
     if isinstance(data.get('company'),dict):result['company']={'name':str(data['company'].get('name',''))}
     return {**{k:v for k,v in payload.items() if k in {'schemaVersion','app','type','exportedAt'}},'data':result}
@@ -328,10 +330,52 @@ def vendor_import(payload):
     return docs,[],warnings
 
 
+def employee_time_import(payload):
+    if payload.get('schemaVersion')!=1 or payload.get('source')!='employees' or payload.get('type')!='backwoods-employee-time':
+        raise AccountingError('Choose business-accounting-time.json from an Employee Employer approved-time download')
+    company=payload.get('company') or {}
+    if not isinstance(company,dict) or not company.get('id') or not company.get('name'):raise AccountingError('The Employee company identity is missing')
+    start=day(payload.get('start'));end=day(payload.get('endExclusive'))
+    if not start<end:raise AccountingError('Invalid Employee time report period')
+    sheets=payload.get('timesheets');leave=payload.get('timeOff')
+    if not isinstance(sheets,list) or not isinstance(leave,list) or not sheets and not leave:raise AccountingError('No approved Employee time records were supplied')
+    docs=[];ids=set()
+    def minutes(value):
+        from decimal import InvalidOperation
+        try:
+            number=Decimal(str(value))
+            if not number.is_finite() or not 0<=number<=150000:raise ValueError()
+            return number
+        except (InvalidOperation,ValueError,TypeError):raise AccountingError('Invalid approved time minutes')
+    for kind,records in [('employee-timesheet',sheets),('employee-time-off',leave)]:
+        for item in records:
+            if not isinstance(item,dict) or not isinstance(item.get('id'),str) or not item['id'] or not item.get('employeeId') or item.get('status')!='approved' or not item.get('approvedBy'):raise AccountingError('Each Employee time record needs its stable ID, employee and approval')
+            key=(kind,item['id'])
+            if key in ids:raise AccountingError('Duplicate Employee time record in the file')
+            ids.add(key)
+            if kind=='employee-timesheet':
+                if not re.fullmatch('[a-f0-9]{64}',str(item.get('sourceHash') or '')) or not item.get('approvedAt'):raise AccountingError('Approved timesheet evidence is missing')
+                if not start<=day(item.get('start'))<day(item.get('endExclusive'))<=end:raise AccountingError('Timesheet falls outside the complete export period')
+                if not isinstance(item.get('assignments'),list):raise AccountingError('Approved job allocations are missing')
+                for job in item['assignments']:
+                    if not isinstance(job,dict) or not job.get('assignmentId') or not job.get('departmentId') or job.get('payType') not in {'hourly','salary'}:raise AccountingError('Approved job and department mapping is missing')
+                    minutes(job.get('regularMinutes'));minutes(job.get('overtimeMinutes'))
+                    if type(job.get('rateCents')) is not int or not 0<=job['rateCents']<=100000000:raise AccountingError('Invalid reviewed job rate')
+                    if job['payType']=='hourly' and (any(type(job.get(key)) is not int or job[key]<0 for key in ['regularCents','overtimeCents','estimatedGrossCents']) or job['regularCents']+job['overtimeCents']!=job['estimatedGrossCents']):raise AccountingError('Estimated gross wages do not reconcile')
+            else:
+                paid=minutes(item.get('paidMinutes'))
+                if item.get('kind') not in {'vacation','sick','personal','unpaid'} or item['kind']=='unpaid' and paid:raise AccountingError('Invalid approved time-off type')
+                if paid and (not item.get('assignmentId') or not item.get('departmentId')):raise AccountingError('Paid leave needs a reviewed job and department')
+                if day(item.get('start'))<start or day(item.get('start'))>=end or day(item.get('end'))>end:raise AccountingError('Time off falls outside the export period')
+            original={'id':item['id'],'date':item['start'],'memo':'Approved hours / estimated gross pay; payroll review in Business Accounting','record':item,'company':company}
+            docs.append(record(kind,original,[],party=item.get('employee',''),reference=item.get('employeeNumber') or item['employeeId']))
+    return docs,[],['Approved time and PTO only: no payroll, tax liability or payment is posted by this import. Estimated gross wages are before deductions; process payroll in Business Accounting using the actual payroll results.']
+
 def prepare(payload, source):
+    if source=='employees':return employee_time_import(payload)
     if source=="vendor":return vendor_import(payload)
     if source=="main":return main_import(payload)
-    raise AccountingError("Select the main app or vendor app as import source")
+    raise AccountingError("Select the main app, vendor app or Employee Employer app as import source")
 
 
 def catalog_items(payload,source):

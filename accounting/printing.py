@@ -33,7 +33,7 @@ def render(ledger,args,user):
         r=ledger.db.execute('SELECT payload FROM documents WHERE source=? AND source_id=?',(source,sid)).fetchone()
         if not r:raise AccountingError('Record not found')
         d=json.loads(r[0]);original=d.get('original',{})
-        if user['role']=='viewer' and 'payroll' in d['kind'].lower():raise AccountingError('Payroll printing requires authorized access')
+        if user['role']=='viewer' and ('payroll' in d['kind'].lower() or args.get('source')=='employees'):raise AccountingError('Employee pay printing requires authorized access')
         title=d['kind'].removeprefix('support-').replace('-',' ').title()
         subtitle=d['reference']
         body='<div class="info"><p><strong>Date:</strong> '+e(d['date'])+'</p><p><strong>Customer / supplier:</strong> '+e(d['party'] or '—')+'</p><p><strong>Source:</strong> '+e(source)+'</p>'
