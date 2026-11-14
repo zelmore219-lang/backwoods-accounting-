@@ -13,18 +13,22 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
  try{
   mark('Opening '+kind+' window');
   const page=await app.firstWindow();page.setDefaultTimeout(30000);const errors=[];page.on('pageerror',e=>errors.push(String(e)));
-  await page.route('https://**/*',route=>route.request().url().includes('identitytoolkit.googleapis.com')?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{code:400,message:'CONFIGURATION_NOT_FOUND'}})}):route.abort());
+  // Main uses its own Electron Session. Block network in that actual Session;
+  // browser-context routing alone does not cover a native custom Session.
+  await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.webContents.session.protocol.handle('https',request=>new Response(JSON.stringify({error:{code:400,message:'CONFIGURATION_NOT_FOUND'}}),{status:400,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}}));});
   mark('Waiting for '+kind+' packaged page');
   await page.waitForURL('file:///**/index.html',{timeout:60000});
   assert.equal(await app.evaluate(({app})=>app.getVersion()),kind==='main'?'8.2.10':'4.1.9');
   if(kind==='main'){
    await page.getByPlaceholder('Username',{exact:true}).waitFor();
    const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/main-native.json')));
-   if(!reuse)await page.evaluate(f=>{localStorage.setItem('backwoods-brew-stable-data',JSON.stringify(f.data));localStorage.setItem('backwoods-brew-stable-users',JSON.stringify([f.user]));},fixture);
+   assert(fixture.data&&fixture.user);
+   if(!reuse)await app.evaluate(({BrowserWindow},fixture)=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().startsWith('file:')).webContents.executeJavaScript('(()=>{const f='+JSON.stringify(fixture)+';localStorage.setItem("backwoods-brew-stable-data",JSON.stringify(f.data));localStorage.setItem("backwoods-brew-stable-users",JSON.stringify([f.user]));return !!localStorage.getItem("backwoods-brew-stable-data");})()'),fixture);
    mark('Signing into fixture Main');
    await page.reload();await page.getByPlaceholder('Username',{exact:true}).fill('receipt-test');await page.getByPlaceholder('Password',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Login',exact:true}).click();await page.getByRole('heading',{name:'Owner Portal',exact:true}).waitFor();
    for(const name of ['Subscriptions','Launch Wizard','Guided Walkthrough'])assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
-   const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('backwoods-brew-stable-data')));assert.deepEqual(data.subscription,fixture.data.subscription);assert.deepEqual(data.launchWizardActions,fixture.data.launchWizardActions);assert.deepEqual(data.wholesaleSentinel,fixture.data.wholesaleSentinel);
+   const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().startsWith('file:')).webContents.executeJavaScript('JSON.parse(localStorage.getItem("backwoods-brew-stable-data"))'));
+   assert(data,'Main must retain its real native-session records');assert.deepEqual(data.subscription,fixture.data.subscription);assert.deepEqual(data.launchWizardActions,fixture.data.launchWizardActions);assert.deepEqual(data.wholesaleSentinel,fixture.data.wholesaleSentinel);
   }else{
    await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();assert.equal(await page.evaluate(()=>typeof window.__bwVendorClockContext),'function');
    // The module is loaded by the real packaged renderer; login is verified in
@@ -35,5 +39,10 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
   mark('Checking '+kind+' result');
   assert.deepEqual(errors,[]);await page.screenshot({path:path.join(profile,reuse?'reinstalled.png':'installed.png'),fullPage:true});
   console.log('PASS installed '+kind+' renderer, version and profile preservation'+(reuse?' after reinstall.':'.'));
- }catch(error){console.error('Failure at '+nativeStage,error);throw error;}finally{mark('Closing '+kind);await app.close();clearTimeout(deadline);}
+ }catch(error){console.error('Failure at '+nativeStage,error);throw error;}finally{
+  mark('Closing '+kind);
+  const stopped=new Promise(resolve=>app.process().once('exit',resolve));
+  await app.evaluate(({app,BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.webContents.session.flushStorageData();setTimeout(()=>app.quit(),0);});
+  await stopped;clearTimeout(deadline);
+ }
 })().catch(e=>{console.error(e);process.exitCode=1;});

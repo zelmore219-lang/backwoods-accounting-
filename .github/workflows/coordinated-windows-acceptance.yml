@@ -1,5 +1,5 @@
 name: Retest exact coordinated Windows packages
-# Native checks have bounded stage diagnostics.
+# Native checks use the real Electron Session and bounded stage diagnostics.
 on:
   push:
     branches: [codex/coordinated-app-integration]

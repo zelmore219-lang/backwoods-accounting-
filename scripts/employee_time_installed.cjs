@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const {_electron}=require('../desktop/node_modules/playwright');
+let nativeApp;const deadline=setTimeout(()=>{console.error('Accounting native acceptance exceeded 180 seconds');if(nativeApp?.process()?.pid){const child=nativeApp.process();if(process.platform==='win32')require('node:child_process').spawnSync('taskkill',['/PID',String(child.pid),'/T','/F']);else child.kill('SIGKILL');}process.exit(1);},180000);deadline.unref();
 const executable=process.argv[2],profile=path.resolve(process.argv[3]),reuse=process.argv.includes('--reuse');
 const payload=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/employee-time.json'),'utf8'));
 const api=(page,route,data)=>page.evaluate(async({route,data})=>{
@@ -11,7 +12,9 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
 (async()=>{
  fs.mkdirSync(profile,{recursive:true});
  const app=await _electron.launch({executablePath:executable,...(process.env.BACKWOODS_NATIVE_SOURCE_PROJECT?{args:['--no-sandbox','--ozone-platform=headless',process.env.BACKWOODS_NATIVE_SOURCE_PROJECT]}:{}),env:{...process.env,LOCALAPPDATA:path.join(profile,'local'),APPDATA:path.join(profile,'roaming'),XDG_DATA_HOME:path.join(profile,'local'),XDG_CONFIG_HOME:path.join(profile,'roaming')},timeout:90000});
+ nativeApp=app;
  try{
+  console.log("Opening installed Accounting");
   const page=await app.firstWindow();await page.waitForURL(/^http:\/\/127\.0\.0\.1:/,{timeout:90000});
   const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,'1.0.8');
   await api(page,reuse?'/api/auth/login':'/api/auth/setup',{name:'Fictitious Accounting Owner',username:'time.fixture.owner',password:'fixture-only-long-passphrase'});
@@ -50,5 +53,5 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
   await page.screenshot({path:path.join(profile,reuse?'accounting-reinstalled.png':'accounting-installed.png'),fullPage:true});
   fs.writeFileSync(path.join(profile,reuse?'reinstall-result.json':'install-result.json'),JSON.stringify({version,employeeRecords:value.employeeTime.length,profit:value.report.profit,originalExpensePreserved:true,reuse},null,2));
   console.log('PASS: installed Accounting '+version+' imports approved Employee hours/PTO without financial postings or duplicates and preserves existing records'+(reuse?' after reinstall.':'.'));
- }finally{await app.close();}
+ }catch(error){console.error('Accounting native acceptance failed',error);throw error;}finally{console.log('Closing Accounting');await app.close();clearTimeout(deadline);}
 })().catch(error=>{console.error(error);process.exitCode=1;});
