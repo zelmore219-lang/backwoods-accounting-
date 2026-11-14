@@ -318,9 +318,11 @@ class LocalHandler(BaseHTTPRequestHandler):
                 value['assets']=asset_state(ledger)
                 value['employees']=[{'id':r['id'],'name':r['name'],**json.loads(r['payload'])} for r in ledger.db.execute('SELECT * FROM employees ORDER BY name')]
                 value['payroll']=[{'source':r['source'],**json.loads(r['payload'])} for r in ledger.db.execute("SELECT source,payload FROM documents WHERE kind IN ('payroll','support-payrollRuns') ORDER BY date DESC")]
+                value['employeeTime']=[{'source':r['source'],**json.loads(r['payload'])} for r in ledger.db.execute("SELECT source,payload FROM documents WHERE source='employees' AND kind IN ('employee-timesheet','employee-time-off') ORDER BY date DESC")]
                 if self.user['role']=='viewer':
                     value['employees']=[];value['payroll']=[]
-                    value['documents']=[d for d in value['documents'] if 'payroll' not in d['kind'].lower()]
+                    value['employeeTime']=[]
+                    value['documents']=[d for d in value['documents'] if 'payroll' not in d['kind'].lower() and d['source']!='employees']
                     value['attachments']=[a for a in value['attachments'] if 'payroll' not in a['source_id'].lower()]
                 value['states']=STATES
                 value['operationStates']=tax_watch.selected_states(ledger)
@@ -357,7 +359,7 @@ class LocalHandler(BaseHTTPRequestHandler):
             elif path=="/api/document":
                 r=ledger.db.execute("SELECT payload FROM documents WHERE source=? AND source_id=?",(args.get("source"),args.get("id"))).fetchone()
                 if not r:raise AccountingError("Transaction not found")
-                if self.user['role']=='viewer' and 'payroll' in str(args.get('id','')).lower():self.respond({'error':'Payroll access is restricted'},403);return
+                if self.user['role']=='viewer' and ('payroll' in str(args.get('id','')).lower() or args.get('source')=='employees'):self.respond({'error':'Employee pay access is restricted'},403);return
                 self.respond(json.loads(r[0]))
             elif path=='/api/provider/paystub':
                 if self.user['role']=='viewer':self.respond({'error':'Payroll access is restricted'},403);return

@@ -193,7 +193,7 @@ class Ledger:
                 raise AccountingError(f"Zero-value journal entry {sid}")
 
     def import_documents(self, source, documents, payload, filename="import.json", snapshot_at=None, accounts=(), preview=False, overrides=(), catalog=(), assets=()):
-        if source not in {"main", "vendor", "manual", "provider"}:
+        if source not in {"main", "vendor", "manual", "provider", "employees"}:
             raise AccountingError("Unrecognized source app")
         self.validate(documents, accounts)
         if snapshot_at:
@@ -215,6 +215,20 @@ class Ledger:
                 if datetime.fromisoformat(snapshot_at)>datetime.now(timezone.utc)+timedelta(minutes=5):
                     raise AccountingError('Export timestamp is in the future; correct the source computer clock')
             counts = {"added": 0, "changed": 0, "duplicates": 0, "records": len(documents)}
+            if source=='employees':
+                existing=[json.loads(row[0]) for row in self.db.execute("SELECT payload FROM documents WHERE source='employees'")]
+                combined={doc['id']:doc for doc in existing}
+                for doc in documents:
+                    old=combined.get(doc['id'])
+                    if old and (old['original']['company']['id']!=doc['original']['company']['id'] or old['original']['record']['employeeId']!=doc['original']['record']['employeeId']):
+                        raise AccountingError('An existing Employee record ID belongs to another company or employee')
+                combined.update({doc['id']:doc for doc in documents})
+                companies={doc['original']['company']['id'] for doc in combined.values()}
+                if len(companies)>1:raise AccountingError('Employee records belong to different companies. Use the correct separate Accounting company profile.')
+                sheets=[doc['original']['record'] for doc in combined.values() if doc['kind']=='employee-timesheet']
+                for index,sheet in enumerate(sheets):
+                    if any(other['employeeId']==sheet['employeeId'] and other['start']<sheet['endExclusive'] and other['endExclusive']>sheet['start'] for other in sheets[index+1:]):
+                        raise AccountingError('An approved Employee timesheet overlaps an already imported period. Review the original records before importing.')
             pending = []
             closed = self.settings().get("closed_through", "")
             for doc in documents:

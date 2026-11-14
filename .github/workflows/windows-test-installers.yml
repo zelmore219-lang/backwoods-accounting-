@@ -2,6 +2,11 @@ name: Build and publish Windows test installers
 
 on:
   workflow_dispatch:
+    inputs:
+      employee_time_only:
+        description: Verify only the Accounting approved-Employee-time update
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths: [.github/workflows/windows-test-installers.yml]
@@ -11,6 +16,7 @@ permissions:
 
 jobs:
   installers:
+    if: github.event_name != 'workflow_dispatch' || !inputs.employee_time_only
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -117,3 +123,66 @@ jobs:
             gh release create $tag @assets --target $env:GITHUB_SHA --prerelease --title 'Backwoods Firebase Spark - all three apps' --notes-file firebase/RELEASE-NOTES.md --repo $env:GITHUB_REPOSITORY
           }
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }
+
+  employee-time:
+    if: github.event_name == 'workflow_dispatch' && inputs.employee_time_only
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Install pinned package tools and retained Python runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install uv==0.13.4 Pillow==13.0.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m uv python install --install-dir .build-resources/managed-python --no-bin --no-registry cpython-3.12.15-windows-x86_64-none
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force .build-resources/python | Out-Null
+          Copy-Item '.build-resources/managed-python/cpython-3.12.15-windows-x86_64-none/*' .build-resources/python -Recurse -Force
+          npm ci --prefix desktop --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm install --prefix desktop --no-save --package-lock=false --ignore-scripts playwright@1.65.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify Accounting and approved Employee import contracts
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/updater.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tests/firebase_feed.test.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/prepare_updaters.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force .test-fixtures | Out-Null
+          python -c "import json,sys;sys.path.insert(0,'tests');from test_employee_time import packet;from pathlib import Path;Path('.test-fixtures/employee-time.json').write_text(json.dumps(packet()))"
+      - name: Build Accounting only
+        run: desktop/node_modules/.bin/electron-builder.cmd --config desktop/electron-builder.yml --win nsis --x64 --publish never
+      - name: Install and exercise actual packaged UI
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem dist/windows -Filter '*Setup*.exe' | Select-Object -First 1).FullName
+          $process = Start-Process $installer -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Accounting installation failed' }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs/Backwoods Business Accounting/Backwoods Business Accounting.exe'
+          node scripts/employee_time_installed.cjs "$app" "$env:RUNNER_TEMP/employee-time-profile"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $process = Start-Process $installer -ArgumentList '/S' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Accounting reinstallation failed' }
+          node scripts/employee_time_installed.cjs "$app" "$env:RUNNER_TEMP/employee-time-profile" --reuse
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $name = Split-Path $installer -Leaf
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $name" | Set-Content dist/windows/SHA256SUMS.txt -Encoding ascii
+          Copy-Item "$env:RUNNER_TEMP/employee-time-profile/*result.json" dist/windows
+      - name: Stage verified installer privately
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/stage-ci-release.py --prefix accounting-time-ci 'dist/windows/*Setup*.exe' dist/windows/SHA256SUMS.txt 'dist/windows/*result.json'
