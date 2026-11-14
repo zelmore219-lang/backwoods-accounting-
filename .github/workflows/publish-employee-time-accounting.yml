@@ -1,0 +1,24 @@
+name: Publish verified Accounting Employee-time handoff
+on:
+  push:
+    branches: [codex/publish-accounting-time-1.0.7]
+    paths: [.build-payload/READY]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: backwoods-app-updates
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Publish accepted Windows bytes before updating only Accounting Windows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/publish_employee_time_update.py --publish
