@@ -1,5 +1,8 @@
 name: Retest exact coordinated Windows packages
 on:
+  push:
+    branches: [codex/coordinated-app-integration]
+    paths: [.github/workflows/coordinated-windows-acceptance.yml]
   workflow_dispatch:
     inputs:
       build_sha:
@@ -12,7 +15,7 @@ jobs:
   windows-acceptance:
     runs-on: windows-latest
     env:
-      ACCEPTANCE_BUILD_SHA: ${{ inputs.build_sha }}
+      ACCEPTANCE_BUILD_SHA: ${{ inputs.build_sha || '3c674120de46c8cb1a5990c3730403a3f4e2283c' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
