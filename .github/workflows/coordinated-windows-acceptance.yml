@@ -10,7 +10,9 @@ on:
         type: string
         required: true
 permissions:
-  contents: read
+  # GitHub hides unpublished draft downloads from read-only workflow tokens.
+  # This job retrieves accepted files; it never publishes releases or feeds.
+  contents: write
 jobs:
   windows-acceptance:
     runs-on: windows-latest
