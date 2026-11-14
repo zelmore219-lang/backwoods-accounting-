@@ -23,12 +23,27 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
    await page.getByPlaceholder('Username',{exact:true}).waitFor();
    const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/main-native.json')));
    assert(fixture.data&&fixture.user);
-   if(!reuse)await app.evaluate(({BrowserWindow},fixture)=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().startsWith('file:')).webContents.executeJavaScript('(()=>{const f='+JSON.stringify(fixture)+';localStorage.setItem("backwoods-brew-stable-data",JSON.stringify(f.data));localStorage.setItem("backwoods-brew-stable-users",JSON.stringify([f.user]));return !!localStorage.getItem("backwoods-brew-stable-data");})()'),fixture);
+   const probe=async()=>JSON.parse(await app.evaluate(async({BrowserWindow})=>{
+    const windows=BrowserWindow.getAllWindows(),win=windows.find(w=>w.webContents.getURL().split('?')[0].endsWith('/www/index.html'));
+    if(!win)throw Error('The actual Main application window is missing');
+    const payload=await win.webContents.executeJavaScript('JSON.stringify({raw:localStorage.getItem("backwoods-brew-stable-data"),keys:Object.keys(localStorage),state:window.__backwoodsMainContext?.getData?.(),url:location.href})');
+    return payload;
+   }));
+   if(!reuse){
+    const seeded=await app.evaluate(async({BrowserWindow},fixture)=>{
+     const win=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().split('?')[0].endsWith('/www/index.html'));
+     return await win.webContents.executeJavaScript('(()=>{const f='+JSON.stringify(fixture)+';localStorage.setItem("backwoods-brew-stable-data",JSON.stringify(f.data));localStorage.setItem("backwoods-brew-stable-users",JSON.stringify([f.user]));return localStorage.getItem("backwoods-brew-stable-data");})()');
+    },fixture);
+    assert(seeded,'The native fixture must be stored before reload');
+    assert.deepEqual(JSON.parse(seeded).subscription,fixture.data.subscription);console.log('Verified native seed before reload');
+   }
    mark('Signing into fixture Main');
    await page.reload();await page.getByPlaceholder('Username',{exact:true}).fill('receipt-test');await page.getByPlaceholder('Password',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Login',exact:true}).click();await page.getByRole('heading',{name:'Owner Portal',exact:true}).waitFor();
    for(const name of ['Subscriptions','Launch Wizard','Guided Walkthrough'])assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
-   const data=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().startsWith('file:')).webContents.executeJavaScript('JSON.parse(localStorage.getItem("backwoods-brew-stable-data"))'));
+   const snapshot=await probe();console.log('Native Main storage',JSON.stringify({url:snapshot.url,keys:snapshot.keys,rawLength:snapshot.raw?.length,statePresent:!!snapshot.state}));
+   const data=JSON.parse(snapshot.raw||'null');
    assert(data,'Main must retain its real native-session records');assert.deepEqual(data.subscription,fixture.data.subscription);assert.deepEqual(data.launchWizardActions,fixture.data.launchWizardActions);assert.deepEqual(data.wholesaleSentinel,fixture.data.wholesaleSentinel);
+
   }else{
    await page.getByRole('button',{name:'Sign in',exact:true}).waitFor();assert.equal(await page.evaluate(()=>typeof window.__bwVendorClockContext),'function');
    // The module is loaded by the real packaged renderer; login is verified in
