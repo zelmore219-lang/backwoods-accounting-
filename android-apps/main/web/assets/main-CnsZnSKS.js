@@ -2162,7 +2162,7 @@ const lm = it("WalletCards", [["rect", {
     d: "M3 11h3c.8 0 1.6.3 2.1.9l1.1.9c1.6 1.6 4.1 1.6 5.7 0l1.1-.9c.5-.5 1.3-.9 2.1-.9H21",
     key: "1dpki6"
   }]]),
-  Bt = "Backwoods Brew 8.1.53 Release, Category Manager",
+  Bt = "Backwoods Brew 8.2.10",
   co = "backwoods-brew-stable-data",
   Al = "backwoods-brew-stable-users",
   gr = "backwoods-brew-sync-queue",
@@ -2173,7 +2173,6 @@ const lm = it("WalletCards", [["rect", {
   yr = 120,
   No = 80,
   Zn = "local-only",
-  om = ["active", "past_due", "suspended", "cancelled"],
   se = () => Date.now() + Math.floor(Math.random() * 99999),
   C = () => new Date().toISOString().slice(0, 10),
   q = () => new Date().toISOString(),
@@ -2192,40 +2191,6 @@ function cs(t, n) {
     r = new Date(a.getFullYear(), a.getMonth() + Math.floor(u(n || 0)), 1),
     s = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
   return r.setDate(Math.min(l, s)), Wa(r) || C();
-}
-function hi(t = C()) {
-  const n = We(t) || C();
-  return {
-    planName: "Monthly Standard",
-    monthlyPrice: 149,
-    status: "active",
-    billingDay: 1,
-    graceDays: 5,
-    nextDueDate: n,
-    lastPaidDate: n,
-    lockoutEnabled: !0,
-    allowOwnerAccessWhenLocked: !0,
-    notes: ""
-  };
-}
-function sm(t) {
-  const n = hi((t == null ? void 0 : t.nextDueDate) || (t == null ? void 0 : t.lastPaidDate) || C()),
-    a = {
-      ...n,
-      ...(t || {})
-    },
-    l = String(a.status || n.status).toLowerCase();
-  return {
-    ...a,
-    status: om.includes(l) ? l : "active",
-    monthlyPrice: +u(a.monthlyPrice).toFixed(2),
-    billingDay: Math.min(28, Math.max(1, Math.floor(u(a.billingDay || n.billingDay)))),
-    graceDays: Math.max(0, Math.floor(u(a.graceDays ?? n.graceDays))),
-    nextDueDate: We(a.nextDueDate) || n.nextDueDate,
-    lastPaidDate: We(a.lastPaidDate) || "",
-    lockoutEnabled: a.lockoutEnabled !== !1,
-    allowOwnerAccessWhenLocked: a.allowOwnerAccessWhenLocked !== !1
-  };
 }
 function Sn(t) {
   const n = rr(),
@@ -3526,14 +3491,14 @@ const je = "owner",
   Hn = "manager",
   Ti = "employee",
   $i = ["posfinal", "voidrefund", "shiftreport", "staffapproval", "timeapprove", "accounts", "acctcomplete", "qbparity", "liabilities", "expenses", "bills", "invoices", "journal", "pl", "balance", "salestax", "tax", "inventoryaudit"],
-  Vl = [["dashboard", "Dashboard"], ["ownerportal", "Owner Portal"], ["employeeportal", "Employee Portal"], ["releasecenter", "Release Center"], ["notifications", "Notifications / Daily Digest"], ["messenger", "Messenger Board"], ["register", "POS Register"], ["wholesale", "Wholesale Sales"], ["loyalty", "Loyalty"], ["queuecenter", "Kitchen Display"], ["posfinal", "Closeout Checklist"], ["cashdrawer", "Cash Drawer / Deposit"], ["managerchecklists", "Manager Checklists"], ["voidrefund", "Voids / Refunds"], ["shiftreport", "Shift Report"], ["receipts", "Receipts / Printers"], ["menu", "Menu / Extras"], ["recipes", "Menu Recipes"], ["sizesmods", "Sizes / Modifiers"], ["inventory", "Inventory"], ["inventoryaudit", "Inventory Audit"], ["inventoryintel", "Inventory Intelligence"], ["roasting", "Coffee Roasting"], ["vendors", "Vendors"], ["purchase", "Purchase Orders"], ["stores", "Stores"], ["multistore", "Multi-Store"], ["multifinal", "Multi-Store Finalization"], ["employees", "Employees / Users"], ["hiring", "Hiring / Onboarding"], ["employeegrowth", "Employee Growth"], ["permissions", "Permissions"], ["staffapproval", "Approvals"], ["timeapprove", "Timecard Approval"], ["schedule", "Schedule Maker"], ["timeoff", "PTO / Time Off"], ["payroll", "Payroll Center"], ["payrolllaws", "Payroll Law Center"], ["accounts", "Chart of Accounts"], ["loans", "Loan Hub"], ["acctcomplete", "Accounting / CPA Center"], ["qbparity", "QuickBooks Parity"], ["liabilities", "Liability Center"], ["expenses", "Expenses"], ["bills", "Bills / A/P"], ["invoices", "Invoices / A/R"], ["journal", "Journal / Ledger"], ["pl", "Profit / Loss"], ["balance", "Balance Sheet"], ["salestax", "Sales Tax"], ["tax", "Tax Summary"], ["square", "Square Setup"], ["reports", "Reports / Tax Pack"], ["backup", "Backup / Export Center"], ["riskcenter", "Owner Risk Center"], ["helpcenter", "Help / Training Center"], ["offline", "Offline Sync"], ["synchealth", "Sync Health"], ["settings", "Settings"], ["subscriptions", "Subscriptions"], ["launchwizard", "Launch Wizard"], ["walkthrough", "Guided Walkthrough"], ["hardening", "Production Hardening"], ["security", "Security / Audit"], ["aicontrol", "AI Command Center"]],
+  Vl = [["dashboard", "Dashboard"], ["ownerportal", "Owner Portal"], ["employeeportal", "Employee Portal"], ["releasecenter", "Release Center"], ["notifications", "Notifications / Daily Digest"], ["messenger", "Messenger Board"], ["register", "POS Register"], ["wholesale", "Wholesale Sales"], ["loyalty", "Loyalty"], ["queuecenter", "Kitchen Display"], ["posfinal", "Closeout Checklist"], ["cashdrawer", "Cash Drawer / Deposit"], ["managerchecklists", "Manager Checklists"], ["voidrefund", "Voids / Refunds"], ["shiftreport", "Shift Report"], ["receipts", "Receipts / Printers"], ["menu", "Menu / Extras"], ["recipes", "Menu Recipes"], ["sizesmods", "Sizes / Modifiers"], ["inventory", "Inventory"], ["inventoryaudit", "Inventory Audit"], ["inventoryintel", "Inventory Intelligence"], ["roasting", "Coffee Roasting"], ["vendors", "Vendors"], ["purchase", "Purchase Orders"], ["stores", "Stores"], ["multistore", "Multi-Store"], ["multifinal", "Multi-Store Finalization"], ["employees", "Employees / Users"], ["hiring", "Hiring / Onboarding"], ["employeegrowth", "Employee Growth"], ["permissions", "Permissions"], ["staffapproval", "Approvals"], ["timeapprove", "Timecard Approval"], ["schedule", "Schedule Maker"], ["timeoff", "PTO / Time Off"], ["payroll", "Payroll Center"], ["payrolllaws", "Payroll Law Center"], ["accounts", "Chart of Accounts"], ["loans", "Loan Hub"], ["acctcomplete", "Accounting / CPA Center"], ["qbparity", "QuickBooks Parity"], ["liabilities", "Liability Center"], ["expenses", "Expenses"], ["bills", "Bills / A/P"], ["invoices", "Invoices / A/R"], ["journal", "Journal / Ledger"], ["pl", "Profit / Loss"], ["balance", "Balance Sheet"], ["salestax", "Sales Tax"], ["tax", "Tax Summary"], ["square", "Square Setup"], ["reports", "Reports / Tax Pack"], ["backup", "Backup / Export Center"], ["riskcenter", "Owner Risk Center"], ["helpcenter", "Help / Training Center"], ["offline", "Offline Sync"], ["synchealth", "Sync Health"], ["settings", "Settings"], ["hardening", "Production Hardening"], ["security", "Security / Audit"], ["aicontrol", "AI Command Center"]],
   hs = {
     owner: ["all"],
-    manager: ["dashboard", "employeeportal", "releasecenter", "cashdrawer", "notifications", "messenger", "register", "wholesale", "receipts", "queuecenter", "loyalty", "menu", "recipes", "sizesmods", "square", "stores", "multistore", "multifinal", "employees", "hiring", "schedule", "timeoff", "payroll", "inventory", "inventoryintel", "roasting", "vendors", "purchase", "reports", "backup", "offline", "settings", "loans", "managerchecklists", "employeegrowth", ...$i, "riskcenter", "helpcenter", "walkthrough"],
-    lead: ["employeeportal", "messenger", "register", "loyalty", "schedule", "helpcenter", "walkthrough"],
-    accountant: ["messenger", "reports", "accounts", "loans", "vendors", "expenses", "bills", "invoices", "wholesale", "purchase", "journal", "pl", "balance", "salestax", "liabilities", "tax", "qbparity", "backup", "helpcenter", "walkthrough"],
-    kitchen: ["messenger", "receipts", "queuecenter", "inventory", "walkthrough"],
-    employee: ["employeeportal", "messenger", "register", "schedule", "helpcenter", "walkthrough"]
+    manager: ["dashboard", "employeeportal", "releasecenter", "cashdrawer", "notifications", "messenger", "register", "wholesale", "receipts", "queuecenter", "loyalty", "menu", "recipes", "sizesmods", "square", "stores", "multistore", "multifinal", "employees", "hiring", "schedule", "timeoff", "payroll", "inventory", "inventoryintel", "roasting", "vendors", "purchase", "reports", "backup", "offline", "settings", "loans", "managerchecklists", "employeegrowth", ...$i, "riskcenter", "helpcenter"],
+    lead: ["employeeportal", "messenger", "register", "loyalty", "schedule", "helpcenter"],
+    accountant: ["messenger", "reports", "accounts", "loans", "vendors", "expenses", "bills", "invoices", "wholesale", "purchase", "journal", "pl", "balance", "salestax", "liabilities", "tax", "qbparity", "backup", "helpcenter"],
+    kitchen: ["messenger", "receipts", "queuecenter", "inventory"],
+    employee: ["employeeportal", "messenger", "register", "schedule", "helpcenter"]
   },
   qm = [["employee", "Employee / Barista"], ["lead", "Shift Lead"], ["manager", "Manager"], ["accountant", "Accountant"], ["kitchen", "Kitchen"]];
 function va(t) {
@@ -3564,10 +3529,11 @@ function Oi(t, n, a) {
   return l.includes("all") || l.includes(a);
 }
 function wn(t, n, a) {
+  if (["subscriptions", "launchwizard", "walkthrough"].includes(a)) return false;
   const l = De(n == null ? void 0 : n.role);
   if (a === "ownerportal") return l === je;
   if (a === "employeeportal" && l === je) return !1;
-  if (a === "aicontrol" || a === "payrolllaws" || a === "subscriptions" || ["permissions", "synchealth", "launchwizard", "hardening", "security"].includes(a)) return l === je;
+  if (a === "aicontrol" || a === "payrolllaws" || ["permissions", "synchealth", "hardening", "security"].includes(a)) return l === je;
   if (a === "releasecenter" || a === "cashdrawer" || a === "riskcenter") return Vt(n);
   if (a === "helpcenter") return !0;
   if (a === "staffapproval" || a === "timeapproval") return Vt(n);
@@ -4351,7 +4317,6 @@ const Ho = [{
       onboardingVersion: "customer-self-hosted-1",
       deploymentMode: Zn
     },
-    subscription: hi(C()),
     payrollLawCatalog: rr(),
     stores: [{
       id: 1,
@@ -6799,7 +6764,7 @@ function Ma(t) {
   };
   Object.keys(Rt).forEach(o => {
     Array.isArray(Rt[o]) && (n[o] = Array.isArray(n[o]) ? n[o] : Rt[o]);
-  }), n.subscription = sm(n.subscription), n.payrollLawCatalog = Sn(n.payrollLawCatalog), typeof n.settings.setupCompleted != "boolean" && (n.settings.setupCompleted = im(n)), n.settings.setupCompletedAt = n.settings.setupCompletedAt || "", n.settings.onboardingVersion = n.settings.onboardingVersion || "customer-self-hosted-1", n.settings.deploymentMode = String(n.settings.deploymentMode || Zn).toLowerCase(), (l = n.accounts) != null && l.length || (n.accounts = Ho);
+  }), n.payrollLawCatalog = Sn(n.payrollLawCatalog), typeof n.settings.setupCompleted != "boolean" && (n.settings.setupCompleted = im(n)), n.settings.setupCompletedAt = n.settings.setupCompletedAt || "", n.settings.onboardingVersion = n.settings.onboardingVersion || "customer-self-hosted-1", n.settings.deploymentMode = String(n.settings.deploymentMode || Zn).toLowerCase(), (l = n.accounts) != null && l.length || (n.accounts = Ho);
   const a = new Set((n.accounts || []).map(o => String(o.code)));
   return n.accounts = [...(n.accounts || []), ...Ho.filter(o => !a.has(String(o.code)))], (r = n.products) != null && r.length || (n.products = Rt.products), (s = n.modifiers) != null && s.length || (n.modifiers = Rt.modifiers), typeof zl == "function" ? zl(n) : n;
 }
@@ -7994,7 +7959,7 @@ function Mu({
       sub: navigator.onLine ? "Online and ready to save" : "Offline - local mode active",
       Icon: Ml
     }],
-    ye = [["register", "New Order", ql], ["notifications", "Daily Digest", Dl], ["managerchecklists", "Checklists", Oa], ["employees", "Add Employee", ml], ["schedule", "Schedule", cn], ["inventory", "Inventory Count", Kn], ["timeapprove", "Time Clock", Ol], ["acctcomplete", "CPA Center", Qn], ["reports", "Reports", Vn], ["backup", "Backup", $n], ["launchwizard", "Launch", Sa], ["settings", "Settings", Fl]],
+    ye = [["register", "New Order", ql], ["notifications", "Daily Digest", Dl], ["managerchecklists", "Checklists", Oa], ["employees", "Add Employee", ml], ["schedule", "Schedule", cn], ["inventory", "Inventory Count", Kn], ["timeapprove", "Time Clock", Ol], ["acctcomplete", "CPA Center", Qn], ["reports", "Reports", Vn], ["backup", "Backup", $n], ["settings", "Settings", Fl]],
     K = [{
       label: c.length ? "Restock low inventory" : "Review inventory levels",
       due: "Due today",
@@ -21687,96 +21652,6 @@ function dg({
     onClick: E
   }, "Fresh Start")))));
 }
-function mg({
-  data: t,
-  setTab: n,
-  user: a
-}) {
-  const l = De(a == null ? void 0 : a.role),
-    s = [{
-      title: "Dashboard",
-      tab: "dashboard",
-      desc: "Owner and manager command center for daily status."
-    }, {
-      title: "Owner Portal",
-      tab: "ownerportal",
-      desc: "Owner approvals, training uploads, write-ups, and announcements."
-    }, {
-      title: "Employee Portal",
-      tab: "employeeportal",
-      desc: "Schedule, PTO, requests, pay stubs, and signed items."
-    }, {
-      title: "POS Register",
-      tab: "register",
-      desc: "Checkout, receipts, loyalty, and order flow."
-    }, {
-      title: "Closeout Checklist",
-      tab: "posfinal",
-      desc: "End-of-day drawer review and closeout packet."
-    }, {
-      title: "Schedule Maker",
-      tab: "schedule",
-      desc: "Day, week, month, PTO, and staff coverage."
-    }, {
-      title: "Timecard Approval",
-      tab: "timeapprove",
-      desc: "Approve clock events before payroll."
-    }, {
-      title: "Payroll Center",
-      tab: "payroll",
-      desc: "Profiles, payroll runs, PTO tracker, and stubs."
-    }, {
-      title: "Payroll Law Center",
-      tab: "payrolllaws",
-      desc: "50-state payroll law profiles and compliance review."
-    }, {
-      title: "Accounting / CPA Center",
-      tab: "acctcomplete",
-      desc: "Books, locks, attachments, CPA export, and trial balance."
-    }, {
-      title: "Square Setup",
-      tab: "square",
-      desc: "Payment mode and Square readiness fields."
-    }, {
-      title: "Reports / Tax Pack",
-      tab: "reports",
-      desc: "Exports for accounting, tax, and operations."
-    }, {
-      title: "Backup / Export Center",
-      tab: "backup",
-      desc: "Full backups, restore files, and launch exports."
-    }, {
-      title: "Permissions",
-      tab: "permissions",
-      desc: "Role access, overrides, and security controls."
-    }, {
-      title: "Production Hardening",
-      tab: "hardening",
-      desc: "Final readiness checks before live use."
-    }, {
-      title: "Subscriptions",
-      tab: "subscriptions",
-      desc: "Monthly billing status and access cutoff controls."
-    }, {
-      title: "Settings",
-      tab: "settings",
-      desc: "Business identity, themes, hardware, and reset tools."
-    }].filter(o => wn(t, a, o.tab) || l === "owner");
-  return e.createElement(qe, {
-    title: "Guided Walkthrough",
-    sub: "Tap each area to open it and see where everything lives."
-  }, e.createElement("div", {
-    className: "grid md:grid-cols-2 xl:grid-cols-3 gap-4"
-  }, s.map(o => e.createElement(k, {
-    key: o.tab
-  }, e.createElement("h3", {
-    className: "font-black text-xl mb-2"
-  }, o.title), e.createElement("p", {
-    className: "text-stone-400 mb-4"
-  }, o.desc), e.createElement(G, {
-    onClick: () => n(o.tab)
-  }, "Open ", o.title)))));
-}
 function ug({
   data: t,
   setData: n,
@@ -23711,7 +23586,7 @@ function Sg({
   var me;
   const l = mt(),
     r = Vl,
-    s = ["ownerportal", "permissions", "synchealth", "launchwizard", "subscriptions", "hardening", "security", "aicontrol", "payrolllaws"],
+    s = ["ownerportal", "permissions", "synchealth", "hardening", "security", "aicontrol", "payrolllaws"],
     [o, i] = j.useState(((me = l[0]) == null ? void 0 : me.username) || ""),
     [c, d] = j.useState(""),
     [m, f] = j.useState("employee"),
@@ -28975,352 +28850,6 @@ function ty({
     fields: ["date", "createdAt", "store", "summary", "createdBy", "alerts"]
   }));
 }
-function ay(t) {
-  const n = {};
-  return (t.launchWizardActions || []).forEach(a => {
-    n[String(a.stepId)] = a;
-  }), n;
-}
-function ny(t) {
-  var o, i, c, d, m, f, y, v, w, I;
-  const n = aa(),
-    a = mt().some(P => De(P.role) === je),
-    l = mt().some(P => De(P.role) === Hn),
-    r = [{
-      id: "business-basics",
-      phase: "Business",
-      task: "Business name, slogan, tax rate, and payroll state are set",
-      ready: !!((o = t.settings) != null && o.businessName) && u((i = t.settings) == null ? void 0 : i.taxRate) >= 0 && !!((c = t.settings) != null && c.payrollState),
-      tab: "settings",
-      detail: `${((d = t.settings) == null ? void 0 : d.businessName) || "No business"} / tax ${((m = t.settings) == null ? void 0 : m.taxRate) ?? 0}% / payroll ${((f = t.settings) == null ? void 0 : f.payrollState) || "not set"}`
-    }, {
-      id: "stores",
-      phase: "Stores",
-      task: "Store profiles are created and active",
-      ready: (t.stores || []).some(P => P.active !== !1),
-      tab: "stores",
-      detail: `${(t.stores || []).length} store(s)`
-    }, {
-      id: "users",
-      phase: "People",
-      task: "Owner, manager, and employee users are ready",
-      ready: a && (t.employees || []).length > 1,
-      tab: "employees",
-      detail: `${(t.employees || []).length} employee record(s)${l ? " / manager user found" : ""}`
-    }, {
-      id: "permissions",
-      phase: "People",
-      task: "Role permissions and manager overrides reviewed",
-      ready: (t.rolePermissionRules || []).length > 0 || (t.managerOverrideRules || []).some(P => P.enabled),
-      tab: "permissions",
-      detail: `${Vl.length} screens in permission catalog`
-    }, {
-      id: "menu",
-      phase: "Sales",
-      task: "Menu items and modifiers are loaded",
-      ready: (t.products || []).length >= 5,
-      tab: "menu",
-      detail: `${(t.products || []).length} product(s), ${(t.modifiers || []).length} modifier(s)`
-    }, {
-      id: "payments",
-      phase: "Sales",
-      task: "Square/payment mode and register settings reviewed",
-      ready: !!((y = t.settings) != null && y.squareMode),
-      tab: "square",
-      detail: `Square mode: ${((v = t.settings) == null ? void 0 : v.squareMode) || "Not set"}`
-    }, {
-      id: "printers",
-      phase: "Devices",
-      task: "Receipt/kitchen printer and cash drawer settings reviewed",
-      ready: !!(((w = t.settings) == null ? void 0 : w.receiptPrinter) || "").trim() || (t.storeProfiles || []).some(P => P.receiptPrinter || P.kitchenPrinter || P.cashDrawer),
-      tab: "receipts",
-      detail: "Receipt printer, kitchen printer, and cash drawer"
-    }, {
-      id: "inventory",
-      phase: "Inventory",
-      task: "Inventory, low-stock levels, and audit tools are ready",
-      ready: (t.inventory || []).length > 0,
-      tab: "inventory",
-      detail: `${(t.inventory || []).length} item(s), ${(t.inventoryAudits || []).length} audit(s)`
-    }, {
-      id: "schedule",
-      phase: "Staff",
-      task: "Schedule maker, PTO, and employee portal are ready",
-      ready: (t.workSchedules || []).length > 0 || (t.employees || []).length > 1,
-      tab: "schedule",
-      detail: `${(t.workSchedules || []).length} scheduled shift(s)`
-    }, {
-      id: "payroll",
-      phase: "Staff",
-      task: "Payroll profiles, timecards, and approval flow are ready",
-      ready: (t.employees || []).some(P => u(P.pay) > 0) || (t.timeLogs || []).length > 0 || (t.timecards || []).length > 0,
-      tab: "payroll",
-      detail: `${pa(t).length} timecard(s)`
-    }, {
-      id: "accounting",
-      phase: "Accounting",
-      task: "CPA center, tax reports, and chart of accounts are ready",
-      ready: (t.accounts || []).length >= 8,
-      tab: "acctcomplete",
-      detail: `${(t.accounts || []).length} account(s)`
-    }, {
-      id: "notifications",
-      phase: "Operations",
-      task: "Notifications and daily digest reviewed",
-      ready: (t.ownerDigestSnapshots || []).length > 0,
-      tab: "notifications",
-      detail: `${bo(t, {
-        role: je,
-        storeId: ((I = t.settings) == null ? void 0 : I.activeStoreId) || 1
-      }, "all").filter(P => !["Dismissed", "Snoozed"].includes(P.status)).length} active alert(s)`
-    }, {
-      id: "checklists",
-      phase: "Operations",
-      task: "Opening/closing manager checklist tested",
-      ready: (t.managerChecklistRuns || []).length > 0,
-      tab: "managerchecklists",
-      detail: `${(t.managerChecklistRuns || []).length} saved checklist run(s)`
-    }, {
-      id: "backup",
-      phase: "Launch",
-      task: "Full backup and launch packet saved",
-      ready: !!n,
-      tab: "backup",
-      detail: n ? `Last backup ${n.at || "saved"}` : "No backup snapshot found"
-    }, {
-      id: "security",
-      phase: "Launch",
-      task: "Default passwords, security audit, and production hardening reviewed",
-      ready: !mt().some(P => String(P.username || "").toLowerCase() === "admin" && String(P.password || "") === "backwoods123"),
-      tab: "hardening",
-      detail: "Security checklist and production hardening"
-    }],
-    s = ay(t);
-  return r.map(P => {
-    const h = s[P.id] || {},
-      g = h.status === "Complete",
-      S = h.status === "Skipped",
-      F = g ? "Complete" : S ? "Skipped" : P.ready ? "Ready" : "Needs Work";
-    return {
-      ...P,
-      status: F,
-      manualStatus: h.status || "",
-      completedAt: h.completedAt || "",
-      completedBy: h.completedBy || "",
-      ready: P.ready ? "Yes" : "No"
-    };
-  });
-}
-function Ws(t) {
-  const n = t || [];
-  if (!n.length) return 0;
-  const a = n.filter(l => l.status === "Complete" || l.status === "Ready").length;
-  return Math.round(a / n.length * 100);
-}
-function ly({
-  data: t,
-  setData: n,
-  user: a,
-  setTab: l
-}) {
-  var g, S, F, b;
-  const [r, s] = j.useState({
-      businessName: ((g = t.settings) == null ? void 0 : g.businessName) || "",
-      slogan: ((S = t.settings) == null ? void 0 : S.slogan) || "",
-      taxRate: String(((F = t.settings) == null ? void 0 : F.taxRate) ?? 0),
-      payrollState: ((b = t.settings) == null ? void 0 : b.payrollState) || "AL"
-    }),
-    o = ny(t),
-    i = Ws(o),
-    c = Array.from(new Set(o.map(E => E.phase))),
-    [d, m] = j.useState("All"),
-    f = d === "All" ? o : o.filter(E => E.phase === d),
-    y = (t.launchWizardActions || []).find(E => E.stepId === "go-live-approved" && E.status === "Complete");
-  function v() {
-    if (!String(r.businessName || "").trim()) return alert("Enter the business name.");
-    n(E => pe(Y({
-      ...E,
-      settings: {
-        ...E.settings,
-        businessName: r.businessName.trim(),
-        slogan: r.slogan,
-        taxRate: u(r.taxRate),
-        payrollState: r.payrollState || "AL"
-      }
-    }, "Updated launch wizard business basics", "launch")));
-  }
-  function w(E, z) {
-    const R = {
-      id: `${E.id}-${se()}`,
-      stepId: E.id,
-      phase: E.phase,
-      task: E.task,
-      status: z,
-      completedAt: z === "Complete" ? q() : "",
-      completedBy: (a == null ? void 0 : a.username) || "",
-      createdAt: q(),
-      createdBy: (a == null ? void 0 : a.username) || "",
-      detail: E.detail
-    };
-    n(V => pe(Y({
-      ...V,
-      launchWizardActions: [R, ...(V.launchWizardActions || []).filter(M => String(M.stepId) !== String(E.id))]
-    }, `Launch wizard ${z.toLowerCase()} ${E.task}`, "launch")));
-  }
-  function I() {
-    if (i < 90 && !confirm(`Launch readiness is ${i}%. Approve go-live anyway?`)) return;
-    const E = {
-      id: se(),
-      stepId: "go-live-approved",
-      phase: "Launch",
-      task: "Owner approved go-live",
-      status: "Complete",
-      completedAt: q(),
-      completedBy: (a == null ? void 0 : a.username) || "",
-      createdAt: q(),
-      createdBy: (a == null ? void 0 : a.username) || "",
-      detail: `Readiness ${i}%`
-    };
-    n(z => pe(Y({
-      ...z,
-      launchWizardActions: [E, ...(z.launchWizardActions || []).filter(R => String(R.stepId) !== "go-live-approved")]
-    }, `Owner approved go-live at ${i}% readiness`, "launch")));
-  }
-  function P() {
-    Ct(`backwoods-launch-wizard-${C()}.json`, {
-      type: "backwoods-launch-wizard",
-      version: Bt,
-      createdAt: q(),
-      readiness: i,
-      goLiveApproved: !!y,
-      rows: o,
-      actions: t.launchWizardActions || [],
-      settings: t.settings,
-      stores: t.stores
-    });
-  }
-  const h = c.map(E => {
-    const z = o.filter(R => R.phase === E);
-    return {
-      phase: E,
-      ready: `${Ws(z)}%`,
-      items: z.length,
-      needsWork: z.filter(R => R.status === "Needs Work").length
-    };
-  });
-  return e.createElement(qe, {
-    title: "Launch Wizard",
-    sub: "Go-live setup flow for stores, taxes, employees, permissions, inventory, printers, payroll, backups, and final launch approval."
-  }, e.createElement("div", {
-    className: "grid md:grid-cols-4 gap-4 mb-5"
-  }, e.createElement(k, null, e.createElement("p", {
-    className: "text-stone-400"
-  }, "Launch Readiness"), e.createElement("h3", {
-    className: "text-4xl font-black"
-  }, i, "%")), e.createElement(k, null, e.createElement("p", {
-    className: "text-stone-400"
-  }, "Ready / Complete"), e.createElement("h3", {
-    className: "text-4xl font-black"
-  }, o.filter(E => E.status === "Ready" || E.status === "Complete").length)), e.createElement(k, null, e.createElement("p", {
-    className: "text-stone-400"
-  }, "Needs Work"), e.createElement("h3", {
-    className: "text-4xl font-black"
-  }, o.filter(E => E.status === "Needs Work").length)), e.createElement(k, null, e.createElement("p", {
-    className: "text-stone-400"
-  }, "Go-Live"), e.createElement("h3", {
-    className: "text-2xl font-black"
-  }, y ? "Approved" : "Not Approved"))), e.createElement(k, {
-    className: "mb-5"
-  }, e.createElement("h3", {
-    className: "font-black text-xl mb-3"
-  }, "Business Basics"), e.createElement("div", {
-    className: "grid md:grid-cols-5 gap-3"
-  }, e.createElement(x, {
-    placeholder: "Business name",
-    value: r.businessName,
-    onChange: E => s({
-      ...r,
-      businessName: E.target.value
-    })
-  }), e.createElement(x, {
-    placeholder: "Slogan",
-    value: r.slogan,
-    onChange: E => s({
-      ...r,
-      slogan: E.target.value
-    })
-  }), e.createElement(x, {
-    placeholder: "Tax rate %",
-    value: r.taxRate,
-    onChange: E => s({
-      ...r,
-      taxRate: E.target.value
-    })
-  }), e.createElement(re, {
-    value: r.payrollState,
-    onChange: E => s({
-      ...r,
-      payrollState: E.target.value
-    })
-  }, Object.entries(sr || {
-    AL: "Alabama"
-  }).map(([E, z]) => e.createElement("option", {
-    key: E,
-    value: E
-  }, E, " - ", z))), e.createElement(G, {
-    onClick: v
-  }, "Save Basics"))), e.createElement(k, {
-    className: "mb-5"
-  }, e.createElement("div", {
-    className: "flex flex-wrap justify-between gap-3 items-end"
-  }, e.createElement("div", null, e.createElement("h3", {
-    className: "font-black text-xl"
-  }, "Launch Controls"), e.createElement("p", {
-    className: "text-stone-400"
-  }, "Use Open to configure each area, then Mark Done when you have checked it.")), e.createElement("div", {
-    className: "flex gap-2 flex-wrap"
-  }, e.createElement(re, {
-    value: d,
-    onChange: E => m(E.target.value)
-  }, e.createElement("option", null, "All"), c.map(E => e.createElement("option", {
-    key: E
-  }, E))), e.createElement(ee, {
-    onClick: P
-  }, "Export Wizard"), e.createElement(G, {
-    onClick: I
-  }, "Approve Go-Live")))), e.createElement("h3", {
-    className: "font-black text-xl mb-3"
-  }, "Readiness By Phase"), e.createElement(te, {
-    rows: h,
-    fields: ["phase", "ready", "items", "needsWork"]
-  }), e.createElement("h3", {
-    className: "font-black text-xl mt-6 mb-3"
-  }, "Launch Checklist"), e.createElement(te, {
-    rows: f,
-    fields: ["phase", "task", "status", "ready", "detail", "completedAt", "completedBy"],
-    actions: E => e.createElement("div", {
-      className: "flex gap-2 flex-wrap"
-    }, e.createElement(G, {
-      onClick: () => l && l(E.tab)
-    }, "Open"), e.createElement(ee, {
-      onClick: () => w(E, "Complete")
-    }, "Mark Done"), e.createElement(ee, {
-      onClick: () => w(E, "Skipped")
-    }, "Skip"))
-  }), e.createElement("h3", {
-    className: "font-black text-xl mt-6 mb-3"
-  }, "Recent Launch Actions"), e.createElement(te, {
-    rows: (t.launchWizardActions || []).slice(0, 25).map(E => ({
-      phase: E.phase,
-      task: E.task,
-      status: E.status,
-      createdAt: E.createdAt,
-      createdBy: E.createdBy,
-      detail: E.detail
-    })),
-    fields: ["phase", "task", "status", "createdAt", "createdBy", "detail"]
-  }));
-}
 const oy = ["Unlock doors, lights, music, and dining area", "Start espresso machine, brewer, refrigeration, and POS", "Count starting drawer and confirm bank", "Review today schedule and assign stations", "Check bathrooms, lobby, patio, and signage", "Verify milk, syrups, cups, lids, and pastry par levels", "Temperature and sanitation check", "Manager opening signoff"],
   ry = ["Stop new orders and complete kitchen/receipt queue", "Count drawer and compare against expected cash", "Complete POS closeout and review over/short", "Log waste, spoiled product, and inventory count notes", "Clean espresso machine, brewer, floors, bathrooms, and lobby", "Restock cups, lids, syrups, milks, and grab-and-go", "Safe drop, deposit bag, doors locked, alarm set", "Manager closing signoff"];
 function sy(t) {
@@ -32596,8 +32125,8 @@ const Ey = [{
   title: "Business Tools",
   items: [["stores", "Stores", Mo], ["multistore", "Multi-Store", Mo], ["multifinal", "Multi-Store Finalization", Sa], ["square", "Square Setup", ls], ["reports", "Reports / Tax Pack", kt], ["backup", "Backup / Export Center", $n], ["releasecenter", "Release Center", kt], ["riskcenter", "Owner Risk Center", Sa]]
 }, {
-  title: "Admin + Launch",
-  items: [["launchwizard", "Launch Wizard", Sa], ["walkthrough", "Guided Walkthrough", Oa], ["subscriptions", "Subscriptions", ls], ["settings", "Settings", Fl], ["offline", "Offline Sync", Ml], ["synchealth", "Sync Health", Ml], ["aicontrol", "AI Command Center", Oo], ["hardening", "Production Hardening", Sa], ["helpcenter", "Help / Training", Oa], ["security", "Security / Audit", Sa]]
+  title: "Administration",
+  items: [["settings", "Settings", Fl], ["offline", "Offline Sync", Ml], ["synchealth", "Sync Health", Ml], ["aicontrol", "AI Command Center", Oo], ["hardening", "Production Hardening", Sa], ["helpcenter", "Help / Training", Oa], ["security", "Security / Audit", Sa]]
 }];
 function xy() {
   j.useEffect(() => {
@@ -33369,17 +32898,6 @@ e.useEffect(()=>{window.dispatchEvent(new Event('bw:accounting-changed'));},[r,a
       user: a,
       setTab: i,
       updateStatus: m
-    }),
-    launchwizard: e.createElement(ly, {
-      data: F,
-      setData: g,
-      user: a,
-      setTab: i
-    }),
-    walkthrough: e.createElement(mg, {
-      data: F,
-      setTab: i,
-      user: a
     }),
     helpcenter: e.createElement(vy, {
       data: F,

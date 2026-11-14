@@ -27,7 +27,7 @@ DATA={'settings':{'businessName':'Backwoods Brew','setupCompleted':True,'activeS
       'drinkSizes':[{'id':'medium','name':'Medium','label':'16 oz','priceAdd':0,'recipeScale':1}],
       'menuRecipes':{'test-latte':[{'inventoryId':'test-beans','qty':0.05}]},
       'inventory':[{'id':'test-beans','item':'Test Coffee Beans','qty':20,'low':1,'unit':'lb','cost':10,'storeId':1}],
-      'orders':[],'bills':[],'expenses':[],'journalEntries':[],'wholesaleSentinel':{'preserve':'unchanged'}}
+      'orders':[],'bills':[],'expenses':[],'journalEntries':[],'wholesaleSentinel':{'preserve':'unchanged'},'subscription':{'status':'past_due','monthlyPrice':149,'notes':'Keep this historical metadata'},'launchWizardActions':[{'id':'historical-approval','status':'Complete'}]}
 
 class Quiet(SimpleHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -67,7 +67,7 @@ def run():
                     page.get_by_placeholder('Password',exact=True).fill(PASSWORD)
                     page.get_by_role('button',name='Login',exact=True).click()
                     page.get_by_role('button',name='POS Register',exact=True).wait_for(timeout=15000)
-                    for text in ['Central Accounting','Wholesale Management']:assert page.get_by_role('button',name=text,exact=True).count()==0,text
+                    for text in ['Central Accounting','Wholesale Management','Subscriptions','Launch Wizard','Guided Walkthrough']:assert page.get_by_role('button',name=text,exact=True).count()==0,text
                     page.get_by_role('heading',name='Owner Portal',exact=True).wait_for()
                     if not page.get_by_role('button',name='POS Register',exact=True).is_visible():page.get_by_role('button',name=re.compile(r'SALES \+ CLOSEOUT',re.I)).click()
                     page.get_by_role('button',name='POS Register',exact=True).click()
@@ -82,6 +82,8 @@ def run():
                     saved=page.evaluate("JSON.parse(localStorage.getItem('backwoods-brew-stable-data'))")
                     order=saved['orders'][-1]
                     for value in ['Backwoods Brew','Oxford Test Store','Receipt Test Latte','1 x $5.00 = $5.00','Cashier: Receipt Test Cashier','TOTAL: $5.50','Tendered: $10.00','Change: $4.50',str(order['id'])]:assert value in text,(value,text)
+                    assert saved['subscription']==DATA['subscription']
+                    assert saved['launchWizardActions']==DATA['launchWizardActions']
                     assert len(saved['orders'])==1
                     assert abs(next(x for x in saved['inventory'] if x['id']=='test-beans')['qty']-19.95)<0.00001
                     await_button=preview.get_by_role('button',name='Print / Save PDF');await_button.click()

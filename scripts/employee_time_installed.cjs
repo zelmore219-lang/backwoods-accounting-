@@ -13,7 +13,7 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
  const app=await _electron.launch({executablePath:executable,env:{...process.env,LOCALAPPDATA:path.join(profile,'local'),APPDATA:path.join(profile,'roaming')},timeout:90000});
  try{
   const page=await app.firstWindow();await page.waitForURL(/^http:\/\/127\.0\.0\.1:/,{timeout:90000});
-  const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,'1.0.7');
+  const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,'1.0.8');
   await api(page,reuse?'/api/auth/login':'/api/auth/setup',{name:'Fictitious Accounting Owner',username:'time.fixture.owner',password:'fixture-only-long-passphrase'});
   if(!reuse)await api(page,'/api/manual-document',{kind:'expense',date:'2026-10-18',party:'Fictitious utility',reference:'KEEP-TIME-FIXTURE',amount:'12.50',account:'5100'});
   await page.reload();await page.locator('nav [data-view="imports"]').click();
@@ -28,6 +28,25 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
   await page.locator('nav [data-view="payroll"]').click();
   await page.getByRole('heading',{name:'Approved Employee hours & PTO',exact:true}).waitFor();
   assert.ok((await page.locator('#content').innerText()).includes('Delivery'));
+  if(!reuse){
+   const seed=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/payroll-roster.json')));
+   const initialized=await app.evaluate(({app},{seed})=>{
+    const require=process.mainModule?.require?process.mainModule.require.bind(process.mainModule):process.getBuiltinModule('node:module').createRequire(app.getAppPath()+'/package.json'),path=require('node:path'),{spawnSync}=require('node:child_process');
+    const resources=path.dirname(app.getAppPath());
+    const code='import json,sys;from accounting.server import default_data_dir;from accounting.ledger import Ledger;from accounting import payroll_management as pm;l=Ledger(default_data_dir()/"accounting.sqlite3");pm.sync_employees(l,"native-fictional-workspace-001",json.loads(sys.stdin.read()),confirm=True);pm.save_provider(l,{"id":"hrmy","name":"HR.my external workflow"});l.close()';
+    const result=spawnSync(path.join(resources,'python/python.exe'),['-c',code],{cwd:path.join(resources,'backend'),encoding:'utf8',input:JSON.stringify(seed),timeout:30000});return {status:result.status,error:result.stderr};
+   },{seed});assert.equal(initialized.status,0,initialized.error);
+  }
+  await page.reload();await page.getByRole('button',{name:'Payroll Management',exact:true}).click();await page.getByRole('heading',{name:'Payroll Management',exact:true}).waitFor();
+  if(!reuse){
+   await page.getByRole('button',{name:'Prepare payroll',exact:true}).click();const form=page.locator('[data-pm-form=prepare]');
+   await form.getByLabel('Method',{exact:true}).selectOption('manual');await form.getByLabel('Period start',{exact:true}).fill('2026-10-26');await form.getByLabel('Period end (exclusive)',{exact:true}).fill('2026-11-02');await form.getByLabel('Pay date',{exact:true}).fill('2026-11-06');
+   await form.getByLabel('Regular hours',{exact:true}).fill('40');await form.getByLabel('Overtime hours',{exact:true}).fill('5');await form.getByLabel('Approved overtime hourly rate',{exact:true}).fill('22.50');await form.getByLabel('Bonus',{exact:true}).fill('50');
+   await form.getByRole('button',{name:'Calculate preview',exact:true}).click();await page.locator('[data-pm-preview]').filter({hasText:'$762.50'}).waitFor();
+   await form.getByRole('button',{name:'Create payroll draft',exact:true}).click();await page.getByRole('heading',{name:'Payroll batch',exact:true}).waitFor();
+  }
+  const payroll=await api(page,'/api/payroll-management');assert.equal(payroll.batches.length,1);assert.equal(payroll.batches[0].totals[0].grossCents,76250);
+  const retained=await api(page,'/api/state');assert.equal(retained.report.profit,-1250);assert.equal(retained.employeeTime.length,2);
   await page.screenshot({path:path.join(profile,reuse?'accounting-reinstalled.png':'accounting-installed.png'),fullPage:true});
   fs.writeFileSync(path.join(profile,reuse?'reinstall-result.json':'install-result.json'),JSON.stringify({version,employeeRecords:value.employeeTime.length,profit:value.report.profit,originalExpensePreserved:true,reuse},null,2));
   console.log('PASS: installed Accounting '+version+' imports approved Employee hours/PTO without financial postings or duplicates and preserves existing records'+(reuse?' after reinstall.':'.'));

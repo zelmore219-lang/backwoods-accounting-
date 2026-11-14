@@ -22,6 +22,7 @@ from . import auth
 from .imports import prepare, record, pair, line, quantity, account_code, catalog_items, unwrap,sanitize_payload
 from .costing import calculate, price_channels
 from .business import asset_state,register_asset,depreciate,dispose_asset,payroll_preview,post_payroll,pay_payroll
+from . import payroll_management,employee_auth
 from .payroll_provider import Gusto,SecretStore,STATES,ProviderError,review_payroll,submit_payroll,sync_payrolls
 from . import tax_watch
 from .printing import render as print_document
@@ -61,6 +62,9 @@ class Application:
         self.feed_errors={}
         self.firebase=Firebase(self.data_dir)
         self.firebase_lock=threading.RLock()
+        self.employee_auth_lock=threading.RLock()
+        self.employee_sessions={}
+        self.company_owner_sessions=set()
         self.firebase_status={'connected':False,'message':'Owner Firebase sign-in has not been linked yet.'}
         ledger=Ledger(self.path)
         ledger.db.executescript(FIREBASE_SCHEMA)
@@ -96,6 +100,18 @@ class Application:
                     except Exception as error:
                         receipts[source]={'error':str(error)}
                         self.firebase_status['message']='One or more source imports need review; other source imports continue.'
+                local=self.ledger()
+                try:employee_connected=bool(payroll_management.settings(local))
+                finally:local.close()
+                if employee_connected:
+                    try:
+                        with self.firebase_lock:workspace,payload=payroll_management.employee_feed(self.firebase)
+                        with self.shared.mutation():
+                            local=self.ledger()
+                            try:receipt=payroll_management.sync_employees(local,workspace,payload)
+                            finally:local.close()
+                        receipts['employees']={'at':now(),'employees':receipt['employees'],'unchanged':receipt.get('unchanged',False)}
+                    except Exception as error:receipts['employees']={'error':str(error)}
             except Exception as error:
                 self.firebase_status={'connected':False,'message':str(error)}
             self.stop.wait(30)
@@ -268,10 +284,17 @@ class LocalHandler(BaseHTTPRequestHandler):
         if origin and origin not in self.allowed_origins():return False
         if self.headers.get("Sec-Fetch-Site")=="cross-site":return False
         ledger=self.app.ledger()
-        try:self.user=auth.session_user(ledger,self.cookie_value('bw_session'))
+        try:self.user=self.session_user(ledger)
         finally:ledger.close()
         if self.user:ACTOR.set(self.user['username'])
         return bool(self.user)
+
+    def session_user(self,ledger):
+        try:
+            with self.app.employee_auth_lock:return employee_auth.session_user(self.app,ledger,self.cookie_value('bw_session'))
+        except AccountingError as error:
+            self.employee_login_error=str(error)
+            return None
 
     def cookie_value(self,name):
         cookie=SimpleCookie()
@@ -292,25 +315,37 @@ class LocalHandler(BaseHTTPRequestHandler):
         if path=='/api/auth/status':
             if not self.trusted_request():self.respond({'error':'Untrusted request'},403);return
             ledger=self.app.ledger()
-            try:self.respond({'initialized':bool(ledger.db.execute('SELECT 1 FROM users').fetchone()),'user':auth.session_user(ledger,self.cookie_value('bw_session')),'firebaseConnected':bool(getattr(self.app.firebase,'connection',None))})
+            try:self.respond({'initialized':bool(ledger.db.execute('SELECT 1 FROM users').fetchone()),'user':self.session_user(ledger),'firebaseConnected':bool(getattr(self.app.firebase,'connection',None)),'employeeManaged':employee_auth.enabled(ledger),'employeeLoginError':getattr(self,'employee_login_error',None)})
             finally:ledger.close()
             return
-        if path in {"/","/app.js","/style.css","/print.css","/print.js"}:
+        if path in {"/","/app.js","/style.css","/print.css","/print.js","/payroll-management.js"}:
             if self.headers.get("Sec-Fetch-Site")=="cross-site":
                 self.respond({"error":"Open the app directly"},403);return
-            filename={"/":"index.html","/app.js":"app.js","/style.css":"style.css","/print.css":"print.css","/print.js":"print.js"}[path]
+            filename={"/":"index.html","/app.js":"app.js","/style.css":"style.css","/print.css":"print.css","/print.js":"print.js","/payroll-management.js":"payroll-management.js"}[path]
             mime='text/html; charset=utf-8' if path=='/' else 'text/css; charset=utf-8' if path.endswith('.css') else 'text/javascript; charset=utf-8'
             self.send_bytes((ROOT/"web"/filename).read_bytes(),mime,set_cookie=path=="/");return
-        if not self.authorized():self.respond({"error":"Open the accounting home page first"},403);return
+        if not self.authorized():self.respond({"error":getattr(self,"employee_login_error",None) or "Sign in to Accounting again", "signInRequired":True},403);return
         args={k:v[0] for k,v in parse_qs(parsed.query).items()}
         ledger=self.app.ledger()
         try:
-            if path=='/print':
+            if path.startswith('/api/payroll-management'):
+                if self.user['role']=='viewer':self.respond({'error':'Payroll access is restricted'},403);return
+                if path=='/api/payroll-management':self.respond(payroll_management.state(ledger,self.user))
+                elif path=='/api/payroll-management/export':
+                    format_=args.get('format','csv')
+                    self.refresh_payroll_inputs(ledger)
+                    with self.app.shared.mutation():raw=payroll_management.export_batch(ledger,args.get('id'),format_)
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' if format_=='xlsx' else 'text/csv; charset=utf-8'
+                    self.send_bytes(raw,mime,filename='backwoods-payroll-'+('provider' if format_=='provider_csv' else 'review')+'-'+str(args.get('id','batch'))+'.'+('xlsx' if format_=='xlsx' else 'csv'))
+                else:self.respond({'error':'Unknown payroll route'},404)
+            elif path=='/print':
                 self.send_bytes(print_document(ledger,args,self.user).encode(),'text/html; charset=utf-8')
             elif path=="/api/state":
                 value=ledger.summary(args.get("start"),args.get("end"))
                 value['user']=self.user
-                value['users']=[dict(r) for r in ledger.db.execute('SELECT id,username,name,role FROM users ORDER BY username')] if self.user['role']=='owner' else []
+                value['users']=[{**dict(r),'employeeId':r['employee_id']} for r in ledger.db.execute('SELECT u.id,u.username,u.name,u.role,l.employee_id FROM users u LEFT JOIN employee_financial_links l ON l.user_id=u.id ORDER BY u.username')] if self.user['role']=='owner' else []
+                value['employeeManagedAccess']=employee_auth.enabled(ledger)
+                value['employeeIdentityProfiles']=[dict(r) for r in ledger.db.execute('SELECT e.id,e.uid,e.username,e.name,e.company_id,e.status,a.accounting_role FROM pm_employees e LEFT JOIN pm_employee_access a ON a.employee_id=e.id ORDER BY e.name')] if self.user['role']=='owner' else []
                 value["recipes"]=[{"id":r["id"],"name":r["name"],"payload":json.loads(r["payload"]),"result":json.loads(r["result"]),"updated_at":r["updated_at"]} for r in ledger.db.execute("SELECT * FROM recipes ORDER BY name")]
                 value['pricing']=[{'id':r['id'],'name':r['name'],'payload':json.loads(r['payload']),'result':json.loads(r['result'])} for r in ledger.db.execute('SELECT * FROM pricing ORDER BY name')]
                 plans={(r['source'],r['source_id']):json.loads(r['payload']) for r in ledger.db.execute('SELECT * FROM item_plans')}
@@ -407,9 +442,11 @@ class LocalHandler(BaseHTTPRequestHandler):
         if path.startswith('/api/auth/'):
             self.auth_request(path);return
         if not self.authorized() or self.headers.get("X-Accounting-Request")!="1":
-            self.respond({"error":"Request is not from the accounting app"},403);return
+            self.respond({"error":getattr(self,"employee_login_error",None) or "Request is not from the accounting app", "signInRequired":not bool(getattr(self,"user",None))},403);return
         if self.user['role']=='viewer':self.respond({'error':'Your role is read-only'},403);return
-        if (path in {'/api/settings','/api/users','/api/provider/connect','/api/provider/submit','/api/tax-watch/configure','/api/tax-watch/review','/api/firebase/connect'} or path.startswith('/api/provider/')) and self.user['role']!='owner':self.respond({'error':'Owner access required'},403);return
+        if path.startswith('/api/payroll-management/') and path.rsplit('/',1)[-1] in {'employee-connect','employee-preview','provider','mapping','rate','approve','receipt','final-report','payment','reconcile'} and self.user['role']!='owner':
+            self.respond({'error':'Owner payroll approval access required'},403);return
+        if (path in {'/api/settings','/api/users','/api/provider/connect','/api/provider/submit','/api/tax-watch/configure','/api/tax-watch/review','/api/firebase/connect','/api/employee-access/link'} or path.startswith('/api/provider/')) and self.user['role']!='owner':self.respond({'error':'Owner access required'},403);return
         ledger=None
         self.app.write_lock.acquire()
         try:
@@ -422,7 +459,9 @@ class LocalHandler(BaseHTTPRequestHandler):
                 result=self.app.process(value,preview=path.endswith("preview"))
             else:
                 ledger=self.app.ledger()
-                if path=='/api/tax-watch/configure':result=tax_watch.configure(ledger,value)
+                if path.startswith('/api/payroll-management/'):
+                    result=self.payroll_action(ledger,path.rsplit('/',1)[-1],value)
+                elif path=='/api/tax-watch/configure':result=tax_watch.configure(ledger,value)
                 elif path=='/api/tax-watch/review':result=tax_watch.review_change(ledger,value)
                 elif path=='/api/tax-watch/check':
                     selected=tax_watch.selected_states(ledger)
@@ -440,8 +479,7 @@ class LocalHandler(BaseHTTPRequestHandler):
                             self.app.firebase_status={'connected':False,'message':'Tax check will retry: '+str(error)}
                     threading.Thread(target=check_now,daemon=True).start();result={'message':'Official-source checks started. Refresh this screen to see results.'}
                 elif path=='/api/firebase/connect':
-                    verification,_=auth.login(ledger,{'username':self.user['username'],'password':value.get('ownerPassword','')})
-                    auth.logout(ledger,verification)
+                    employee_auth.reauthenticate(self.app,ledger,self.user,value.get('ownerPassword',''))
                     with self.app.firebase_lock:
                         result=self.app.firebase.connect(ledger,self.user,value.get('email',''),value.get('password',''))
                         self.app.firebase_status={'connected':True,'message':'Company linked. Automatic imports will start shortly.'}
@@ -463,9 +501,12 @@ class LocalHandler(BaseHTTPRequestHandler):
                 elif path=='/api/provider/review':result=review_payroll(ledger,Gusto(self.app.data_dir),value.get('payrollId'))
                 elif path=='/api/provider/submit':
                     r=ledger.db.execute('SELECT * FROM users WHERE id=?',(self.user['id'],)).fetchone()
-                    if not secrets.compare_digest(r['password_hash'],auth.password_hash(str(value.get('password','')),r['salt'])):raise AccountingError('Owner password is incorrect')
+                    employee_auth.reauthenticate(self.app,ledger,self.user,value.get('password',''))
                     result=submit_payroll(ledger,Gusto(self.app.data_dir),value.get('payrollId'),value.get('fingerprint'),value.get('confirmation'))
-                elif path=='/api/users':result=auth.create_user(ledger,value)
+                elif path=='/api/users':
+                    if employee_auth.enabled(ledger):raise AccountingError('Assign Accounting access in Employee. New staff use their existing shared username; no second financial password is created.')
+                    result=auth.create_user(ledger,value)
+                elif path=='/api/employee-access/link':result=employee_auth.link_existing(ledger,self.user,value)
                 elif path=='/api/assets/register':result=register_asset(ledger,value)
                 elif path=='/api/assets/depreciate':result=depreciate(ledger,value)
                 elif path=='/api/assets/dispose':result=dispose_asset(ledger,value)
@@ -606,6 +647,29 @@ class LocalHandler(BaseHTTPRequestHandler):
             if ledger:ledger.close()
             self.app.write_lock.release()
 
+    def refresh_payroll_inputs(self,ledger):
+        if payroll_management.settings(ledger) and self.app.shared.connected():
+            with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
+            payroll_management.sync_employees(ledger,workspace,payload)
+
+    def payroll_action(self,ledger,action,value):
+        payroll_management.require_payroll(self.user)
+        if action in {'employee-preview','employee-connect','sync'}:
+            with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
+            if action=='employee-preview':return {'workspace':workspace,'companies':payload['companies'],'employees':len(payload['employees']),'approvedPackets':len(payload['approvedPackets']),'issues':payload['issues']}
+            if action=='employee-connect':
+                if value.get('workspace')!=workspace or value.get('confirmed') is not True:raise AccountingError('Review and confirm this actual Employee workspace before connecting')
+            return payroll_management.sync_employees(ledger,workspace,payload,confirm=action=='employee-connect',company_id=value.get('companyId'))
+        if action in {'preview','prepare','review','approve'}:self.refresh_payroll_inputs(ledger)
+        if action=='preview':
+            start,end,company,entries,claims,issues=payroll_management.prepare_entries(ledger,value)
+            return {'entries':entries,'issues':issues}
+        actions={'prepare':payroll_management.create_batch,'review':payroll_management.review_batch,'approve':payroll_management.approve_batch,'cancel':payroll_management.cancel_batch,
+          'rate':payroll_management.save_rate,'provider':payroll_management.save_provider,'mapping':payroll_management.save_mapping,'receipt':payroll_management.confirm_receipt,
+          'final-report':payroll_management.post_final_report,'payment':payroll_management.record_payment,'reconcile':payroll_management.reconcile_batch}
+        if action not in actions:raise AccountingError('Unsupported payroll management action')
+        return actions[action](ledger,value)
+
     def auth_request(self,path):
         if not self.trusted_request() or self.headers.get('X-Accounting-Request')!='1' or not secrets.compare_digest(self.cookie_value('bw_bootstrap'),self.app.cookie):
             self.respond({'error':'Open the sign-in page directly'},403);return
@@ -619,21 +683,36 @@ class LocalHandler(BaseHTTPRequestHandler):
                 auth.create_user(ledger,value,first=True)
                 token,user=auth.login(ledger,value);self.respond({'user':user},session_token=token)
             elif path=='/api/auth/login':
-                token,user=auth.login(ledger,value);self.respond({'user':user},session_token=token)
+                if employee_auth.candidate(ledger,value.get('username','')):
+                    ledger.close();ledger=None
+                    with self.app.employee_auth_lock:token,user=employee_auth.login(self.app,value)
+                else:token,user=auth.login(ledger,value)
+                self.respond({'user':user},session_token=token)
             elif path=='/api/auth/firebase-login':
                 uid=self.app.firebase.verify_identity(str(value.get('idToken','')))
                 row=ledger.db.execute('SELECT u.* FROM users u JOIN firebase_link f ON f.user_id=u.id WHERE f.uid=?',(uid,)).fetchone()
                 if not row:raise AccountingError('This Firebase account has not been linked to the company ledger by its owner')
-                token,user=auth.issue_session(ledger,row);self.respond({'user':user},session_token=token)
+                managed=ledger.db.execute('SELECT 1 FROM employee_financial_links WHERE user_id=?',(row['id'],)).fetchone()
+                if managed:
+                    if row['role']!='owner':raise AccountingError('Use the Employee username and password for this managed financial account')
+                    self.app.firebase.transport('https://firestore.googleapis.com/v1/'+self.app.firebase.root()+'/ledger/state',token=str(value['idToken']))
+                token,user=auth.issue_session(ledger,row)
+                if managed:self.app.company_owner_sessions.add(employee_auth.key(token))
+                self.respond({'user':user},session_token=token)
             elif path=='/api/auth/logout':
+                self.app.employee_sessions.pop(employee_auth.key(self.cookie_value('bw_session')),None)
+                self.app.company_owner_sessions.discard(employee_auth.key(self.cookie_value('bw_session')))
                 auth.logout(ledger,self.cookie_value('bw_session'));self.respond({'ok':True},session_token='')
             elif path=='/api/auth/password':
-                user=auth.session_user(ledger,self.cookie_value('bw_session'))
+                user=self.session_user(ledger)
                 if not user:raise AccountingError('Sign in first')
+                if ledger.db.execute('SELECT 1 FROM employee_financial_links WHERE user_id=?',(user['id'],)).fetchone():raise AccountingError('Change your shared Backwoods password in Employee → Change my password. It then applies to connected Accounting access.')
                 auth.change_password(ledger,user,value);self.respond({'ok':True},session_token='')
             else:self.respond({'error':'Unknown authentication action'},404)
         except (AccountingError,ValueError,KeyError,sqlite3.IntegrityError) as exc:self.respond({'error':str(exc)},400)
-        finally:ledger.close();self.app.write_lock.release()
+        finally:
+            if ledger:ledger.close()
+            self.app.write_lock.release()
 
 
 class Handler(SharedHandlerMixin,LocalHandler):

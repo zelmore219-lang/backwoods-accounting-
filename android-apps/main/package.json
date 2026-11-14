@@ -1,6 +1,6 @@
 {
   "name": "backwoods-main-android-connected",
-  "version": "8.2.9",
+  "version": "8.2.10",
   "private": true,
   "scripts": {
     "sync": "cap sync android"
