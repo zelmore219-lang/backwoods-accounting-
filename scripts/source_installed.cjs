@@ -4,10 +4,10 @@ const {_electron}=require('../desktop/node_modules/playwright');
 const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.includes('--reuse');
 (async()=>{
  assert(['main','vendor'].includes(kind));fs.mkdirSync(profile,{recursive:true});
- const app=await _electron.launch({executablePath:executable,env:{...process.env,BACKWOODS_TEST_DATA_DIR:profile},timeout:90000});
+ const app=await _electron.launch({executablePath:executable,...(process.env.BACKWOODS_NATIVE_SOURCE_PROJECT?{args:['--no-sandbox','--ozone-platform=headless',process.env.BACKWOODS_NATIVE_SOURCE_PROJECT]}:{}),env:{...process.env,BACKWOODS_TEST_DATA_DIR:profile},timeout:90000});
  try{
   const page=await app.firstWindow();page.setDefaultTimeout(30000);const errors=[];page.on('pageerror',e=>errors.push(String(e)));
-  await page.route('https://**/*',route=>route.request.url().includes('identitytoolkit.googleapis.com')?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{code:400,message:'CONFIGURATION_NOT_FOUND'}})}):route.abort());
+  await page.route('https://**/*',route=>route.request().url().includes('identitytoolkit.googleapis.com')?route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:{code:400,message:'CONFIGURATION_NOT_FOUND'}})}):route.abort());
   await page.waitForURL('file:///**/index.html',{timeout:60000});
   assert.equal(await app.evaluate(({app})=>app.getVersion()),kind==='main'?'8.2.10':'4.1.9');
   if(kind==='main'){

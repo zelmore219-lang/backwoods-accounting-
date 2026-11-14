@@ -103,7 +103,7 @@ def sync_employees(ledger,workspace,payload,confirm=False,company_id=None):
   id_=text(e.get('id'),'Employee ID',128);need(id_ not in ids,'Duplicate Employee ID in roster');ids.add(id_)
   need(e.get('company_id') in companies and isinstance(e.get('jobs'),list),'Invalid Employee company or assignments')
   old=ledger.db.execute('SELECT * FROM pm_employees WHERE id=?',(id_,)).fetchone()
-  if old:need(old['workspace']==workspace and old['company_id']==e['company_id'] and old['uid']==e.get('firebase_uid') and old['username']==e['username'],'An Employee identity changed. Review the exact UID before replacing payroll links')
+  if old:need(old['workspace']==workspace and old['company_id']==e['company_id'] and (old['uid'] is None or old['uid']==e.get('firebase_uid')) and old['username']==e['username'],'An Employee identity changed. Review the exact UID before replacing payroll links')
   for j in e['jobs']:number(j.get('rate_cents'),'Employee compensation');need(j.get('pay_type') in {'hourly','salary'},'Unsupported Employee compensation type')
  # Existing approved time imports retain their own validation, revisions and IDs.
  from .imports import sanitize_payload,prepare
@@ -121,7 +121,7 @@ def sync_employees(ledger,workspace,payload,confirm=False,company_id=None):
   ledger.db.executemany('INSERT INTO pm_feed_sources VALUES(?,?)',current_sources.items())
   if not existing:ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('employee_payroll_connection',canonical({'workspace':workspace,'companies':sorted(companies)})))
   for e in profiles:
-   ledger.db.execute('INSERT INTO pm_employees VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,status=excluded.status,jobs=excluded.jobs,source_hash=excluded.source_hash,updated_at=excluded.updated_at',
+   ledger.db.execute('INSERT INTO pm_employees VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET uid=COALESCE(pm_employees.uid,excluded.uid),name=excluded.name,status=excluded.status,jobs=excluded.jobs,source_hash=excluded.source_hash,updated_at=excluded.updated_at',
     (e['id'],workspace,e['company_id'],e.get('firebase_uid'),text(e.get('username'),'Employee username',100),text(e.get('name'),'Employee name',150),str(e.get('status')),canonical(e['jobs']),hashlib.sha256(canonical(e).encode()).hexdigest(),now()))
    role=e.get('accountingRole');need(role in {None,'owner','accountant','viewer'},'Unsupported Employee Accounting role')
    ledger.db.execute('INSERT INTO pm_employee_access VALUES(?,?) ON CONFLICT(employee_id) DO UPDATE SET accounting_role=excluded.accounting_role',(e['id'],role))

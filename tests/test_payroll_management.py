@@ -178,3 +178,14 @@ class PayrollManagementTests(unittest.TestCase):
   pm.sync_employees(self.ledger,'existing-workspace-001',feed)
   self.assertEqual([r[0] for r in self.ledger.db.execute('SELECT id FROM pm_employees')],['staff-1'])
   self.assertEqual(pm.settings(self.ledger)['companies'],['backwoods'])
+ def test_a_draft_gains_its_first_server_verified_uid_without_a_second_payroll_profile(self):
+  ledger=Ledger(Path(self.temp.name)/'draft-finance.sqlite3')
+  try:
+   draft=roster();draft['employees'][0]['firebase_uid']=None
+   pm.sync_employees(ledger,'existing-workspace-001',draft,confirm=True)
+   pm.sync_employees(ledger,'existing-workspace-001',roster())
+   self.assertEqual(ledger.db.execute('SELECT COUNT(*) FROM pm_employees').fetchone()[0],1)
+   self.assertEqual(ledger.db.execute('SELECT id,uid FROM pm_employees').fetchone()[:],('staff-1','same-existing-uid'))
+   replacement=roster();replacement['employees'][0]['firebase_uid']='unreviewed-replacement'
+   with self.assertRaises(AccountingError):pm.sync_employees(ledger,'existing-workspace-001',replacement)
+  finally:ledger.close()

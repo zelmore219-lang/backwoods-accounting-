@@ -10,7 +10,7 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
 },{route,data});
 (async()=>{
  fs.mkdirSync(profile,{recursive:true});
- const app=await _electron.launch({executablePath:executable,env:{...process.env,LOCALAPPDATA:path.join(profile,'local'),APPDATA:path.join(profile,'roaming')},timeout:90000});
+ const app=await _electron.launch({executablePath:executable,...(process.env.BACKWOODS_NATIVE_SOURCE_PROJECT?{args:['--no-sandbox','--ozone-platform=headless',process.env.BACKWOODS_NATIVE_SOURCE_PROJECT]}:{}),env:{...process.env,LOCALAPPDATA:path.join(profile,'local'),APPDATA:path.join(profile,'roaming'),XDG_DATA_HOME:path.join(profile,'local'),XDG_CONFIG_HOME:path.join(profile,'roaming')},timeout:90000});
  try{
   const page=await app.firstWindow();await page.waitForURL(/^http:\/\/127\.0\.0\.1:/,{timeout:90000});
   const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,'1.0.8');
@@ -32,9 +32,9 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
    const seed=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/payroll-roster.json')));
    const initialized=await app.evaluate(({app},{seed})=>{
     const require=process.mainModule?.require?process.mainModule.require.bind(process.mainModule):process.getBuiltinModule('node:module').createRequire(app.getAppPath()+'/package.json'),path=require('node:path'),{spawnSync}=require('node:child_process');
-    const resources=path.dirname(app.getAppPath());
+    const resources=path.dirname(app.getAppPath()),backend=app.isPackaged?path.join(resources,'backend'):resources,python=app.isPackaged?path.join(resources,'python/python.exe'):process.env.BACKWOODS_TEST_PYTHON||'python3';
     const code='import json,sys;from accounting.server import default_data_dir;from accounting.ledger import Ledger;from accounting import payroll_management as pm;l=Ledger(default_data_dir()/"accounting.sqlite3");pm.sync_employees(l,"native-fictional-workspace-001",json.loads(sys.stdin.read()),confirm=True);pm.save_provider(l,{"id":"hrmy","name":"HR.my external workflow"});l.close()';
-    const result=spawnSync(path.join(resources,'python/python.exe'),['-c',code],{cwd:path.join(resources,'backend'),encoding:'utf8',input:JSON.stringify(seed),timeout:30000});return {status:result.status,error:result.stderr};
+    const result=spawnSync(python,['-c',code],{cwd:backend,encoding:'utf8',input:JSON.stringify(seed),timeout:30000});return {status:result.status,error:result.stderr};
    },{seed});assert.equal(initialized.status,0,initialized.error);
   }
   await page.reload();await page.getByRole('button',{name:'Payroll Management',exact:true}).click();await page.getByRole('heading',{name:'Payroll Management',exact:true}).waitFor();
