@@ -4,7 +4,7 @@ Windows release set: Pest Control **0.10.0**, Employee Employer **0.4.9**, Busin
 
 ## 1. Install the Windows updates — owner
 
-Save work and make your normal backups. Let pending Pest work synchronize first. Fully quit Pest, including **Quit Backwoods and stop alerts** in its tray menu, before installing.
+Save work and make your normal backups. Let pending Pest work synchronize first. Fully quit Pest, including **Quit Backwoods and stop alerts** in its tray menu, before installing. In Employee’s tray menu select **Quit and stop owner service**. Close Accounting before installing its update.
 
 Download and run these installers under the same Windows account that holds your existing data:
 
