@@ -13,10 +13,12 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
  try{
   mark('Opening '+kind+' window');
   const page=await app.firstWindow();page.setDefaultTimeout(30000);const errors=[];page.on('pageerror',e=>errors.push(String(e)));
-  // Main uses its own Electron Session. Block network in that actual Session;
-  // browser-context routing alone does not cover a native custom Session.
+  // Block network in the actual profile Session, including a profile selected
+  // by the chooser; context routing does not cover every native Session.
   await app.evaluate(({BrowserWindow})=>{for(const win of BrowserWindow.getAllWindows())win.webContents.session.protocol.handle('https',request=>new Response(JSON.stringify({error:{code:400,message:'CONFIGURATION_NOT_FOUND'}}),{status:400,headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}}));});
-  console.log('Native storage sessions',await app.evaluate(({app,BrowserWindow,session})=>{const win=BrowserWindow.getAllWindows()[0];return {userData:app.getPath('userData'),mainPath:win.webContents.session.storagePath,defaultPath:session.defaultSession.storagePath,same:win.webContents.session===session.defaultSession};}));
+  const sessions=await app.evaluate(({app,BrowserWindow,session})=>{const win=BrowserWindow.getAllWindows()[0];return {userData:app.getPath('userData'),mainPath:win.webContents.session.storagePath,defaultPath:session.defaultSession.storagePath,same:win.webContents.session===session.defaultSession};});
+  console.log('Native storage sessions',sessions);
+  if(kind==='main'&&sessions.mainPath===sessions.defaultPath)assert(sessions.same,'One physical profile must use one Electron Session');
   mark('Waiting for '+kind+' packaged page');
   await page.waitForURL('file:///**/index.html',{timeout:60000});
   assert.equal(await app.evaluate(({app})=>app.getVersion()),kind==='main'?'8.2.10':'4.1.9');

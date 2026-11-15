@@ -348,6 +348,23 @@ function installDownloadedUpdate() {
     });
   }
 }
+function mainProfileSession() {
+  // defaultSession may already be open (for example by the updater). Opening a
+  // second Session on its directory competes for the same Chromium databases.
+  // The profile chooser can select a different directory, so retain that path
+  // rather than unconditionally using the default profile.
+  const canonical = value => {
+    let resolved = path.resolve(value);
+    try { resolved = fs.realpathSync(resolved); } catch {}
+    return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+  };
+  const profilePath = app.getPath("userData");
+  const standard = session.defaultSession;
+  return standard.storagePath && canonical(standard.storagePath) === canonical(profilePath)
+    ? standard
+    : session.fromPath(profilePath);
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -361,7 +378,7 @@ function createWindow() {
     icon: path.join(__dirname, "..", "assets", "icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
-      session: session.fromPath(app.getPath("userData")),
+      session: mainProfileSession(),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
