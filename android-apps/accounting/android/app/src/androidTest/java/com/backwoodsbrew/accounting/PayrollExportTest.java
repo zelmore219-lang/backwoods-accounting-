@@ -6,6 +6,8 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.os.SystemClock;
+import android.view.MotionEvent;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 import androidx.test.core.app.ActivityScenario;
@@ -37,6 +39,17 @@ public class PayrollExportTest {
   for(int i=0;i<100;i++){if("true".equals(js(web,"Boolean("+condition+")")))return;Thread.sleep(200);}
   fail("Native payroll page did not reach "+condition+": "+js(web,"document.body.innerText"));
  }
+ private void tap(WebView web,String selector)throws Exception{
+  String element="document.querySelector("+JSONObject.quote(selector)+")";
+  js(web,element+".scrollIntoView({block:'center',inline:'center'})");Thread.sleep(250);
+  float cssX=Float.parseFloat(js(web,"((r)=>r.left+r.width/2)("+element+".getBoundingClientRect())"));
+  float cssY=Float.parseFloat(js(web,"((r)=>r.top+r.height/2)("+element+".getBoundingClientRect())"));
+  int[] location=new int[2];float[] scale=new float[1];
+  instrumentation.runOnMainSync(()->{web.getLocationOnScreen(location);scale[0]=web.getScale();});
+  float x=location[0]+cssX*scale[0],y=location[1]+cssY*scale[0];long time=SystemClock.uptimeMillis();
+  MotionEvent down=MotionEvent.obtain(time,time,MotionEvent.ACTION_DOWN,x,y,0),up=MotionEvent.obtain(time,time+60,MotionEvent.ACTION_UP,x,y,0);
+  try{instrumentation.sendPointerSync(down);instrumentation.sendPointerSync(up);}finally{down.recycle();up.recycle();}
+ }
  @Test public void approvedPayrollUsesTheNativeSavePickerWithoutLosingTheBatch()throws Exception{
   Context context=instrumentation.getTargetContext();
   if(!Python.isStarted())Python.start(new AndroidPlatform(context));
@@ -61,8 +74,12 @@ public class PayrollExportTest {
    assertTrue(js(web,"document.body.innerText").contains("762.50"));
    Instrumentation.ActivityMonitor picker=instrumentation.addMonitor(new IntentFilter(Intent.ACTION_CREATE_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
    try{
-    js(web,"document.querySelector('a[data-pm-download][href*=xlsx]').click()");
+    tap(web,"a[data-pm-download][href*=xlsx]");
     for(int i=0;i<100&&picker.getHits()==0;i++)Thread.sleep(100);
+    if(picker.getHits()!=1){
+     System.out.println("Native payroll save diagnostic: "+js(web,"JSON.stringify({notice:document.querySelector('#notice')?.innerText,url:location.href,body:document.body.innerText})"));
+     Field pending=MainActivity.class.getDeclaredField("downloadUrl");pending.setAccessible(true);System.out.println("Native pending export URL: "+pending.get(activity.get()));
+    }
     assertEquals("The authorized XLSX must open Android's document save picker",1,picker.getHits());
     assertTrue(js(web,"document.body.innerText").contains("Payroll batch"));
     PyObject exported=python.getModule("builtins").callAttr("eval","fixture_app.ledger().db.execute('SELECT COUNT(*) FROM pm_exports').fetchone()[0]",globals);
