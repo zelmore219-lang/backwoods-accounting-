@@ -92,7 +92,8 @@ def sync_employees(ledger,workspace,payload,confirm=False,company_id=None):
  payload={**payload,'companies':[c for c in payload['companies'] if str(c['id'])==selected],
   'employees':[e for e in payload.get('employees',[]) if e.get('company_id')==selected],
   'approvedPackets':[p for p in payload.get('approvedPackets',[]) if p.get('company',{}).get('id')==selected],
-  'issues':[i for i in payload.get('issues',[]) if i.get('company_id')==selected]}
+  'issues':[i for i in payload.get('issues',[]) if i.get('company_id')==selected],
+  'pestAccounting':[p for p in payload.get('pestAccounting',[]) if p.get('companyId')==selected]}
  source_hash=hashlib.sha256(canonical(payload).encode()).hexdigest()
  last=json.loads(ledger.settings().get('employee_payroll_last_sync','null'))
  if existing and not confirm and last and last.get('sourceHash')==source_hash:return {'unchanged':True,'employees':len(payload.get('employees',[])),'imports':[],'issues':payload.get('issues',[])}
@@ -128,6 +129,8 @@ def sync_employees(ledger,workspace,payload,confirm=False,company_id=None):
   # Deletion is not guessed as termination; missing identities require review.
   ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('employee_payroll_last_sync',canonical({'at':now(),'revision':payload.get('revision'),'sourceHash':source_hash,'issues':payload.get('issues',[]),'missingEmployeeIds':[r[0] for r in ledger.db.execute('SELECT id FROM pm_employees') if r[0] not in ids]})))
   ledger.audit('payroll-roster-synchronized',{'workspace':workspace,'employees':len(profiles),'approvedPackets':len(receipts)})
+ from . import pest
+ pest.synchronize(ledger,workspace,payload.get('pestAccounting',[]))
  return {'employees':len(profiles),'imports':receipts,'issues':payload.get('issues',[])}
 
 def save_rate(ledger,value):
