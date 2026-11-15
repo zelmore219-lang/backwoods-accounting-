@@ -27,7 +27,7 @@ try {
  if ($LASTEXITCODE -ne 0) { throw 'Original Production source could not initialize its retained database.' }
 } finally { Pop-Location }
 function Verify-Window {
- $process = Start-Process (Join-Path $app 'Backwoods Production.exe') -ArgumentList '--verify' -PassThru
+ $process = Start-Process (Join-Path $app 'Backwoods Production.exe') -ArgumentList '--smoke-test' -PassThru
  if (!$process.WaitForExit(120000)) { $process.Kill(); throw 'The actual Production desktop verification timed out.' }
  if ($process.ExitCode -ne 0) { throw ('The actual Production desktop failed verification: ' + $process.ExitCode) }
 }
