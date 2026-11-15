@@ -5,7 +5,8 @@ on:
     paths: [.github/workflows/production-package-acceptance.yml]
   workflow_dispatch:
 permissions:
-  contents: read
+  # GitHub draft release downloads require a push-capable repository token.
+  contents: write
 jobs:
   exact-windows:
     runs-on: windows-latest
