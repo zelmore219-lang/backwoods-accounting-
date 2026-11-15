@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$TargetDirectory)
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
 $payload = $PSScriptRoot
 $target = [IO.Path]::GetFullPath($TargetDirectory).TrimEnd('\')
 if ($target -eq [IO.Path]::GetPathRoot($target).TrimEnd('\')) { throw 'Choose an application folder, not the root of a drive.' }
@@ -9,7 +10,7 @@ foreach ($entry in $manifest.PSObject.Properties) {
  if (!$file.StartsWith($payload.TrimEnd('\')+'\', [StringComparison]::OrdinalIgnoreCase) -or !(Test-Path -LiteralPath $file -PathType Leaf) -or (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $entry.Value) { throw ('Installation file failed verification: '+$entry.Name) }
 }
 function Test-WebViewRuntime {
- foreach ($base in @($env:LOCALAPPDATA,${env:ProgramFiles(x86)},$env:ProgramFiles)) {
+ foreach ($base in @($env:LOCALAPPDATA,${env:ProgramFiles(x86)},$env:ProgramFiles,$env:ProgramW6432)) {
   if (!$base) { continue }
   $folder = Join-Path $base 'Microsoft/EdgeWebView/Application'
   if (!(Test-Path -LiteralPath $folder)) { continue }

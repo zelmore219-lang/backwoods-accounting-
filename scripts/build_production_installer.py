@@ -44,8 +44,9 @@ def build(nsis,update,runtime=None,bootstrapper=None,out=None):
         if not bootstrapper.exists():urllib.request.urlretrieve(WEBVIEW_URL,bootstrapper)
     if bootstrapper.read_bytes()[:2]!=b'MZ':raise ValueError('Expected the official Microsoft WebView2 bootstrapper')
     if os.name=='nt':
-        environment={**os.environ,'PRODUCTION_WEBVIEW_BOOTSTRAPPER':str(bootstrapper)}
-        subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',"$s=Get-AuthenticodeSignature -LiteralPath $env:PRODUCTION_WEBVIEW_BOOTSTRAPPER; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') { throw 'Microsoft WebView2 publisher signature is not valid' }"],env=environment,check=True)
+        environment={k:v for k,v in os.environ.items() if k.casefold()!='psmodulepath'}
+        environment['PRODUCTION_WEBVIEW_BOOTSTRAPPER']=str(bootstrapper)
+        subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',"$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules'); $s=Get-AuthenticodeSignature -LiteralPath $env:PRODUCTION_WEBVIEW_BOOTSTRAPPER; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') { throw 'Microsoft WebView2 publisher signature is not valid' }"],env=environment,check=True)
     shutil.copy2(bootstrapper,payload/'MicrosoftEdgeWebView2Setup.exe')
     shutil.copy2(ROOT/'scripts/install_production_payload.ps1',payload/'Install-Production.ps1')
     readme='''BACKWOODS PRODUCTION 1.0.0 - WINDOWS INSTALLER
