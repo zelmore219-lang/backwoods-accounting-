@@ -15,6 +15,16 @@ class PestAccountingTests(unittest.TestCase):
   self.assertEqual(self.ledger.db.execute("SELECT COUNT(*) FROM documents WHERE source='pest'").fetchone()[0],2)
   balances={a['code']:a['balance'] for a in self.ledger.report()['trial']};self.assertEqual(balances['1100'],6800);self.assertEqual(balances['1030'],4000);self.assertEqual(balances.get('1020',0),0)
   for row in self.ledger.db.execute("SELECT payload FROM documents WHERE source='pest'"):self.assertEqual(json.loads(row[0])['department'],'Pest Control')
+ def test_repeated_invalid_snapshot_never_becomes_a_silent_unchanged_sync(self):
+  from tests.test_payroll_management import roster
+  payload=roster();payload['pestAccounting']=[packet()]
+  pm.sync_employees(self.ledger,'reviewed-workspace',payload);self.connect()
+  baseline=self.ledger.db.execute("SELECT COUNT(*) FROM batches WHERE source='pest'").fetchone()[0]
+  for _ in range(2):pest.synchronize(self.ledger,'reviewed-workspace',[packet()])
+  self.assertEqual(self.ledger.db.execute("SELECT COUNT(*) FROM batches WHERE source='pest'").fetchone()[0],baseline)
+  payload['pestAccounting'][0]['invoices'][0]['totalCents']+=1
+  for _ in range(2):
+   with self.assertRaises(AccountingError):pm.sync_employees(self.ledger,'reviewed-workspace',payload)
  def test_explicit_unpaid_void_reverses_the_original_invoice_once(self):
   p=packet();p['invoices'][0].update(status='Open',paidCents=0,payments=[]);self.connect(p)
   p['invoices'][0]['status']='Void';pest.synchronize(self.ledger,'reviewed-workspace',[p]);pest.synchronize(self.ledger,'reviewed-workspace',[p])

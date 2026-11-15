@@ -1,5 +1,5 @@
 """Reviewed Pest billing in the existing company ledger, through Employee's private view."""
-import json
+import hashlib,json
 from .ledger import AccountingError,canonical,day,now
 PROJECT='bugzapper-3397f'
 OWNER='o4T4SN4GDlP0I470mhyD77xD9JD3'
@@ -46,8 +46,11 @@ def synchronize(ledger,workspace,packets):
  current={d['id'] for d in documents}
  old={r[0] for r in ledger.db.execute("SELECT source_id FROM documents WHERE source='pest'")}
  need(old<=current,'A previously imported Pest invoice/payment is missing. Preserve its original source record or review an explicit correction; no deletion was inferred')
+ fingerprint=hashlib.sha256(canonical(packet).encode()).hexdigest()
+ last=json.loads(ledger.settings().get('pest_accounting_last_sync','null'))
+ if last and last.get('snapshotHash')==fingerprint:return {'unchanged':True}
  receipt=ledger.import_documents('pest',documents,packet,'Verified Pest Control billing',accounts=accounts)
- with ledger.db:ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('pest_accounting_last_sync',canonical({'at':now(),**receipt,'department':'Pest Control'})))
+ with ledger.db:ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('pest_accounting_last_sync',canonical({'at':now(),**receipt,'snapshotHash':fingerprint,'department':'Pest Control'})))
  return receipt
 def connect(ledger,user,workspace,packets,value):
  from . import payroll_management as pm
@@ -66,5 +69,6 @@ def connect(ledger,user,workspace,packets,value):
  def save_binding(db):
   ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('pest_accounting_connection',canonical(binding)))
   ledger.audit('pest-accounting-connected',binding)
+  ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('pest_accounting_last_sync',canonical({'at':now(),'snapshotHash':hashlib.sha256(canonical(packet).encode()).hexdigest(),'department':'Pest Control'})))
  result=ledger.import_documents('pest',documents,packet,'Owner-reviewed Pest Control connection',accounts=accounts,commit_hook=save_binding)
  return {**result,'department':'Pest Control','companyId':company}
