@@ -32,6 +32,8 @@ jobs:
     permissions:
       contents: write
     timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
