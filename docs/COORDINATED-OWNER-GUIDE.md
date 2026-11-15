@@ -1,18 +1,27 @@
 # Backwoods coordinated apps and payroll: owner guide
 
-Published packages: Main 8.2.10; Vendor 4.1.9; Business Accounting 1.0.8;
-Employee Windows 0.4.6. Main/Vendor/Accounting Windows and Android downloads
-were independently verified against the accepted build. Windows install/reinstall
-checks passed. Confirm the installed version on each device after updating.
-The existing Driver release and Employee Android release are retained.
+Published packages: Main **8.2.11**; Vendor **4.1.10**; Business Accounting
+**1.0.10**; Employee Windows **0.4.7**; Driver Windows **0.5.2**.
+Main/Vendor/Accounting Windows and Android release downloads were independently
+verified against the exact accepted build. Each APK is non-debuggable and passed
+an actual same-key upgrade from the previous public APK plus reinstall/private
+record preservation. All Windows install/reinstall checks passed. Accounting's
+actual Android approved-payroll download opens the native file-save picker.
 
-[Main, Vendor and Accounting downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/apps-coordinated-2026-11-14)
-and [Employee Windows download](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/tag/employees-0.4.6).
-Existing installations can use **App updates → Check → Download → Install**.
+[Main, Vendor and Accounting downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/apps-release-2026-11-15),
+[Employee Windows](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/tag/employees-0.4.7)
+and [Driver Windows](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/tag/driver-0.5.2).
+Existing installations: **App updates → Check → Download → Install**.
 Main/Vendor expose **Settings → Open app updates**; Accounting also exposes
-**Help → App updates…**. Save work and back up before installing over the existing
-app. Updated paper-onboarding screens are available in Employee Windows; the
-retained Employee Android 0.4.3 does not deliver the new Windows-only screens.
+**Help → App updates…**. Save work and back up first. Install over the existing
+application using the same account/profile; confirm its version afterward.
+
+Employee Android is still **0.4.3**, pending the one-time private signing setup
+below. Driver Android is still compatible **0.5.1**; its newer 0.5.2 source/build
+is ready, but the existing Driver (New) signing key/password backup is unavailable
+in this environment. Their current APKs passed actual native installation,
+sign-in-screen and reinstall checks. These checks do not deliver the unpublished
+new Android features. Keep existing installations and pending local records.
 
 ## Install and connect
 
@@ -98,6 +107,32 @@ read the owner's private Google credential. No service-account JSON, billing
 upgrade, Cloud Function or Cloud Run deployment is needed. Setup does not deploy
 Firestore rules. A permission error requires review of the existing protected
 Employee relay rules while preserving Main/Vendor rules; never make them public.
+
+## Finish the Employee Android release signing setup
+
+This is a one-time owner action in **Employee Windows 0.4.7**. The connected owner
+PC can read its existing private Firebase signing backup; this development
+environment cannot. No replacement key or Google authorization code is needed.
+
+1. Open **Owner service → Connect or manage owner service…** and scroll to
+   **Android release signing**.
+2. Select **Open private GitHub secret settings**. In the existing private
+   `backwoods-brew-android` repository, name the new secret
+   **EMPLOYEE_ANDROID_SIGNING_JSON**.
+3. Return to Employee and check **I will store this signing setup only in the
+   private GitHub repository secret**. Select **Copy verified Android signing
+   setup**. Return to GitHub, right-click in **Secret**, choose **Paste**, then
+   **Add secret**. The unchanged clipboard clears after two minutes or app exit.
+4. Tell the developer the secret is saved. Never paste its value, a key, password
+   or authorization code into chat. The signed Android builder must then pass the
+   retained-certificate check and actual public-baseline upgrade/reinstall before
+   the newer Employee APK can be published. Saving the secret alone does not
+   update a phone.
+
+If the backup is absent, denied or has a different certificate, the action stops
+without copying a replacement. Driver uses a different signing identity; the
+Employee backup cannot sign a compatible Driver update. Driver needs its own
+retained backup before Android 0.5.2 can be published.
 
 ## Paper onboarding without uploads
 
@@ -254,14 +289,13 @@ paths and verified Firebase identities before linking.
 
 ## What is still unavailable
 
-- The unshipped Production prototype/source is missing. Manufacturing batches,
-  finished-goods transfers to Vendor, manufacturing valuation/COGS and Production
-  shared login cannot be implemented or verified without it. Existing stock
-  writers have not been changed to invent this connection.
+- Production is explicitly deferred by the owner and is outside this release
+  audit. No Production update or manufacturing integration is claimed.
 - No new provider API credentials, sandbox or verified provider import schema
   were supplied. No live payroll submission/payment/filing was performed.
 - No employee records, approvals, actual timecards or live Firebase settings
   were changed as part of testing. Your real identity links, reviews, verified
   rules, provider setup and payroll approvals must be completed by you.
-- Android packages are build/signature checked, with browser phone/tablet flows;
-  no physical Android device, physical printer or real bank acceptance is claimed.
+- Android install/upgrade/reinstall and native runtime tests ran on isolated
+  emulators, with separate authenticated browser/Auth/Firestore workflows. No
+  physical Android device, physical printer or real bank acceptance is claimed.
