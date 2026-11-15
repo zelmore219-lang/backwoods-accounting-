@@ -15,6 +15,8 @@ def set_version(kind,version):
             p=project/name;value=json.loads(p.read_text());value['version']=version
             if 'packages' in value:value['packages']['']['version']=version
             p.write_text(json.dumps(value,indent=2)+'\n')
+    if kind=='accounting':
+        page=ROOT/'web/index.html';html=page.read_text();html=re.sub(r'Backwoods Business Accounting · v\d+\.\d+\.\d+','Backwoods Business Accounting · v'+version,html);page.write_text(html)
     android=ROOT/'android-apps'/kind
     p=android/'android/app/build.gradle';s=p.read_text();s=re.sub(r'versionCode \d+','versionCode '+str(code),s,count=1);s=re.sub(r'versionName [\'"][^\'"]+[\'"]',"versionName '"+version+"'",s,count=1);p.write_text(s)
     p=android/'build-metadata.json'
