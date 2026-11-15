@@ -162,7 +162,7 @@ jobs:
           python scripts/prepare_updaters.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force .test-fixtures | Out-Null
-          python -c "import json,sys;sys.path.insert(0,'tests');from test_employee_time import packet;from pathlib import Path;Path('.test-fixtures/employee-time.json').write_text(json.dumps(packet()))"
+          python -c "import json,sys;sys.path.insert(0,'tests');from test_employee_time import packet;from test_payroll_management import roster;from pathlib import Path;Path('.test-fixtures/employee-time.json').write_text(json.dumps(packet()));Path('.test-fixtures/payroll-roster.json').write_text(json.dumps(roster()))"
       - name: Build Accounting only
         run: desktop/node_modules/.bin/electron-builder.cmd --config desktop/electron-builder.yml --win nsis --x64 --publish never
       - name: Install and exercise actual packaged UI

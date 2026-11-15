@@ -22,6 +22,14 @@ on:
         description: 'Keep the exact published Accounting packages when only Main/Vendor change'
         default: false
         type: boolean
+      reuse_source_apps:
+        description: 'Retain exact published Main/Vendor bytes after verifying unchanged runtime sources'
+        default: false
+        type: boolean
+      reuse_build_sha:
+        description: 'Retest exact staged packages after CI/test-only changes; runtime changes are rejected'
+        required: false
+        type: string
       publish:
         description: 'Publish packages and activate the update feed after validation'
         default: true
@@ -35,12 +43,16 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    outputs:
+      source_sha: ${{ steps.accepted-source.outputs.sha }}
     env:
       RELEASE_TAG: ${{ inputs.release_tag || format('apps-{0}', github.run_number) }}
       ACCOUNTING_VERSION: ${{ inputs.accounting_version }}
       VENDOR_VERSION: ${{ inputs.vendor_version }}
       MAIN_VERSION: ${{ inputs.main_version }}
       REUSE_ACCOUNTING: ${{ inputs.reuse_accounting }}
+      REUSE_SOURCE_APPS: ${{ inputs.reuse_source_apps }}
+      REUSE_BUILD_SHA: ${{ inputs.reuse_build_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,6 +68,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Restore retained Android signing identity
+        if: inputs.reuse_build_sha == ''
         env:
           ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_UPDATE_KEYSTORE_BASE64 }}
         run: |
@@ -68,6 +81,7 @@ jobs:
           key=folder/'debug.keystore';key.write_bytes(base64.b64decode(value,validate=True));key.chmod(0o600)
           PY
       - name: Set selected versions and install pinned build tools
+        if: inputs.reuse_build_sha == ''
         run: |
           python scripts/set_app_versions.py --accounting "$ACCOUNTING_VERSION" --vendor "$VENDOR_VERSION" --main "$MAIN_VERSION"
           python -m pip install --disable-pip-version-check uv==0.13.4 Pillow==13.0.0 playwright==1.62.0
@@ -84,8 +98,12 @@ jobs:
           python scripts/prepare_app_icons.py
           python scripts/prepare_accounting_android.py
       - name: Test accounting and updater rules
+        if: inputs.reuse_build_sha == ''
         run: |
           python -m unittest discover -s tests -q
+          node --test tests/payroll_csv.test.cjs
+          node --test source-app-updates/main/tests/receipts.test.mjs
+          node source-app-updates/main/scripts/verify.cjs
           node tests/updater.test.cjs
           node tests/updater-electron.test.cjs
           node tests/updater-transport.test.cjs
@@ -94,13 +112,17 @@ jobs:
           python -m playwright install --with-deps chromium
           python scripts/browser_updater_smoke.py
           python scripts/browser_settings_updates_smoke.py
+          python scripts/main_receipt_smoke.py
+          python scripts/payroll_management_smoke.py
           node desktop/node_modules/electron/install.js
           desktop/node_modules/electron/dist/electron --no-sandbox --ozone-platform=headless scripts/electron_live_updater.cjs --download
       - uses: android-actions/setup-android@v3
+        if: inputs.reuse_build_sha == ''
         with:
           packages: 'platform-tools'
           log-accepted-android-sdk-licenses: false
       - name: Prepare Android SDK and native assets
+        if: inputs.reuse_build_sha == ''
         run: |
           set +o pipefail
           yes | sdkmanager --licenses >/dev/null
@@ -109,30 +131,206 @@ jobs:
           (cd android-apps/main && node_modules/.bin/cap sync android)
           (cd android-apps/vendor && node_modules/.bin/cap sync android)
       - name: Build Android APKs and native updater tests
+        if: inputs.reuse_build_sha == ''
         run: |
-          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
-          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
-          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
+          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
+          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
       - name: Build Windows installers
+        if: inputs.reuse_build_sha == ''
         run: |
           NSIS_COMPILER="$(cat .build-tools/nsis-path.txt)"
           python scripts/build_installer.py --nsis "$NSIS_COMPILER"
           python scripts/build_source_installers.py main --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
           python scripts/build_source_installers.py vendor --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
       - name: Validate identities and prepare update feed
+        if: inputs.reuse_build_sha == ''
         run: |
-          if [ "$REUSE_ACCOUNTING" = "true" ]; then
-            python scripts/build_update_release.py --tag "$RELEASE_TAG" --reuse-accounting
-          else
-            python scripts/build_update_release.py --tag "$RELEASE_TAG"
-          fi
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-and-android-updates
-          path: dist/update-release/*
-          retention-days: 14
-      - name: Publish verified packages and update feed
-        if: ${{ inputs.publish }}
+          extra=()
+          if [ "$REUSE_ACCOUNTING" = "true" ]; then extra+=(--reuse-accounting); fi
+          if [ "$REUSE_SOURCE_APPS" = "true" ]; then extra+=(--reuse-source-apps); fi
+          python scripts/build_update_release.py --tag "$RELEASE_TAG" "${extra[@]}"
+      - name: Stage exact built packages privately for Windows acceptance
+        if: inputs.reuse_build_sha == ''
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python scripts/publish_updates.py --tag "$RELEASE_TAG" --directory dist/update-release
+        run: python scripts/stage-ci-release.py --prefix coordinated-build 'dist/update-release/*'
+      - name: Select exact accepted application sources
+        id: accepted-source
+        run: |
+          if [ -n "$REUSE_BUILD_SHA" ]; then
+            python scripts/verify_reused_build.py "$REUSE_BUILD_SHA"
+            echo "sha=$REUSE_BUILD_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+
+  windows-acceptance:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      ACCEPTANCE_BUILD_SHA: ${{ needs.build.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Retrieve exact build and verify every package
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force dist/update-release | Out-Null
+          gh release download "coordinated-build-$env:ACCEPTANCE_BUILD_SHA" --repo $env:GITHUB_REPOSITORY --dir dist/update-release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import json,hashlib;from pathlib import Path;p=Path('dist/update-release');v=json.loads((p/'backwoods-updates.json').read_text());assert v['sourceCommit']==__import__('os').environ['ACCEPTANCE_BUILD_SHA'];[(lambda f,a:(f.stat().st_size==a['size'] and hashlib.file_digest(f.open('rb'),'sha256').hexdigest()==a['sha256']) or __import__('sys').exit('Package failed verification'))(p/a['url'].rsplit('/',1)[1],a) for app in v['apps'].values() for a in [app['windows'],app['android']]]"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix desktop --ignore-scripts --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm install --prefix desktop --no-save --package-lock=false --ignore-scripts playwright@1.65.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install playwright==1.62.0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare isolated acceptance fixtures
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .test-fixtures | Out-Null
+          python -c "import sys,json;sys.path[:0]=['tests','scripts'];from test_employee_time import packet;from test_payroll_management import roster;from main_receipt_smoke import USER,DATA,PASSWORD;from pathlib import Path;p=Path('.test-fixtures');(p/'employee-time.json').write_text(json.dumps(packet()));(p/'payroll-roster.json').write_text(json.dumps(roster()));(p/'main-native.json').write_text(json.dumps({'user':USER,'data':DATA,'password':PASSWORD}))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install and reinstall exact Main Vendor Accounting packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $apps = @(
+            @{ kind='main'; mask='Backwoods-Brew-Connected-Setup-*.exe'; path='Backwoods Brew Connected/Backwoods Brew Connected.exe' },
+            @{ kind='vendor'; mask='Backwoods-Vendor-Ordering-Connected-Setup-*.exe'; path='Backwoods Vendor Ordering Connected/Backwoods Vendor Ordering Connected.exe' },
+            @{ kind='accounting'; mask='Backwoods-Business-Accounting-Setup-*.exe'; path='Backwoods Business Accounting/Backwoods Business Accounting.exe' }
+          )
+          foreach ($item in $apps) {
+            $installer = (Get-ChildItem dist/update-release -Filter $item.mask | Select-Object -First 1).FullName
+            $executable = Join-Path "$env:LOCALAPPDATA/Programs" $item.path
+            $profile = Join-Path $env:RUNNER_TEMP ('coordinated-' + $item.kind)
+            foreach ($reuse in @($false,$true)) {
+              $process = Start-Process $installer -ArgumentList '/S' -Wait -PassThru
+              if ($process.ExitCode -ne 0) { throw ('Install failed: ' + $item.kind) }
+              $extra = @(); if ($reuse) { $extra = @('--reuse') }
+              if ($item.kind -eq 'accounting') { node scripts/employee_time_installed.cjs "$executable" "$profile" @extra }
+              else { node scripts/source_installed.cjs $item.kind "$executable" "$profile" @extra }
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+          }
+
+  android-release-upgrade:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [main, vendor, accounting]
+    env:
+      ACCEPTANCE_BUILD_SHA: ${{ needs.build.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Retrieve exact signed release packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/update-release
+          gh release download "coordinated-build-$ACCEPTANCE_BUILD_SHA" --repo "$GITHUB_REPOSITORY" --dir dist/update-release --pattern '*.apk' --pattern 'backwoods-updates.json'
+          sdkmanager 'build-tools;35.0.0'
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: python scripts/android_published_smoke.py ${{ matrix.app }} dist/update-release/backwoods-updates.json
+
+  android-accounting-acceptance:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      ACCEPTANCE_BUILD_SHA: ${{ needs.build.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Retrieve the exact Accounting build and prepare its native test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_KEY: ${{ secrets.ANDROID_UPDATE_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p dist/update-release
+          gh release download "coordinated-build-$ACCEPTANCE_BUILD_SHA" --repo "$GITHUB_REPOSITORY" --dir dist/update-release --pattern '*Accounting*.apk' --pattern 'backwoods-updates.json'
+          python -m pip install Pillow==13.0.0
+          python scripts/prepare_accounting_android.py
+          python - <<'PY'
+          import base64,hashlib,json,os
+          from pathlib import Path
+          folder=Path('.build-resources/android-signing');folder.mkdir(parents=True,exist_ok=True)
+          key=folder/'debug.keystore';key.write_bytes(base64.b64decode(os.environ['SIGNING_KEY'],validate=True));key.chmod(0o600)
+          feed=json.loads(Path('dist/update-release/backwoods-updates.json').read_text());assert feed['sourceCommit']==os.environ['ACCEPTANCE_BUILD_SHA']
+          info=feed['apps']['accounting']['android'];apk=Path('dist/update-release')/info['url'].rsplit('/',1)[1]
+          assert apk.stat().st_size==info['size'] and hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()==info['sha256']
+          Path('dist/accounting-accepted-apk.txt').write_text(str(apk.resolve()))
+          PY
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 assembleDebugAndroidTest)
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install -r "$(cat dist/accounting-accepted-apk.txt)"
+            adb install -r android-apps/accounting/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.backwoodsbrew.accounting.PayrollExportTest com.backwoodsbrew.accounting.test/androidx.test.runner.AndroidJUnitRunner | tee dist/accounting-native-payroll.log
+            adb logcat -d -s System.out:I chromium:W TestRunner:I
+            python -c "from pathlib import Path;s=Path('dist/accounting-native-payroll.log').read_text();assert 'OK (1 test)' in s and 'FAILURES' not in s,s"
+
+  publish:
+    needs: [build, windows-acceptance, android-release-upgrade, android-accounting-acceptance]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Retrieve accepted packages and publish the update feed last
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || format('apps-{0}', github.run_number) }}
+          ACCEPTANCE_BUILD_SHA: ${{ needs.build.outputs.source_sha }}
+        run: |
+          mkdir -p dist/update-release
+          gh release download "coordinated-build-$ACCEPTANCE_BUILD_SHA" --repo "$GITHUB_REPOSITORY" --dir dist/update-release
+          python scripts/publish_updates.py --tag "$RELEASE_TAG" --directory dist/update-release

@@ -2,6 +2,15 @@
 
 A standalone company ledger for Backwoods Brew retail activity, Vendor Ordering wholesale deliveries, and transactions entered directly in this app. The original apps retain their own accounting.
 
+For the coordinated Main 8.2.10, Vendor 4.1.9, Accounting 1.0.8 and Employee
+Windows 0.4.6 workflow, start with the
+[current owner guide](docs/COORDINATED-OWNER-GUIDE.md). **Payroll Management**
+prepares approved Employee hours or manual wages, departmental totals, reviewed
+CSV/Excel, actual external payroll results and bank reconciliation. HR.my can
+remain the external workflow; Gusto enrollment is not required. Employee handles
+onboarding, attendance, approvals, PTO and estimated gross pay. Production's
+unshipped source is still missing; manufacturing integration is not claimed.
+
 ## Windows installation
 
 Use `Backwoods-Business-Accounting-Setup-1.0.2.exe` from the release package. It bundles the desktop shell and Python runtime: a separate Python installation is not required. Install for your Windows user, launch Business Accounting, and create the first owner account. There is no default username or password. Use a passphrase of at least 12 characters.
@@ -46,9 +55,9 @@ The source APKs upload authenticated financial copies after owner sign-in. Busin
 
 `BUILD-APK-WINDOWS.cmd` rebuilds all three APKs. Complete Android projects and prerequisites are in [android-apps](android-apps/README.md).
 
-## Connected payroll setup
+## Optional legacy Gusto connection
 
-An owner needs an approved Gusto Embedded Payroll application and company authorization. Enter its company UUID, environment and company access token in the Windows app's payroll connection form. Refresh-token settings are optional only when the selected authorization does not need renewal; expired authorization blocks service access. Access and refresh secrets are encrypted with Windows DPAPI for the current Windows user and are not included in the database backup. Reconnect after moving to another Windows account or computer.
+Only owners using this existing optional adapter need an approved Gusto Embedded Payroll application and company authorization. HR.my users use Payroll Management and the current owner guide above instead. For the Gusto adapter, enter its company UUID, environment and company access token in the Windows app's payroll connection form. Refresh-token settings are optional only when the selected authorization does not need renewal; expired authorization blocks service access. Access and refresh secrets are encrypted with Windows DPAPI for the current Windows user and are not included in the database backup. Reconnect after moving to another Windows account or computer.
 
 For development, use secure environment bindings named `GUSTO_COMPANY_ID`, `GUSTO_ACCESS_TOKEN`, optionally `GUSTO_REFRESH_TOKEN`, `GUSTO_CLIENT_ID`, `GUSTO_CLIENT_SECRET`, and `GUSTO_ENVIRONMENT` (`demo` or `production`). Do not put values into the repository or chat. Linux development does not save plaintext payroll credentials; Windows encrypted storage or environment bindings are required.
 

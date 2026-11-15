@@ -77,6 +77,7 @@ Function .onInit
     MessageBox MB_OK "This installer requires 64-bit Windows."
     Quit
   ${{EndIf}}
+  IfSilent continueInstall
   MessageBox MB_OKCANCEL "Before installing or upgrading, close Backwoods Business Accounting, including its system-tray process. Your company records in Local AppData are preserved." IDOK continueInstall
   Quit
   continueInstall:

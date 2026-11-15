@@ -1,0 +1,53 @@
+name: Test the five published Android apps
+on:
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: 'JSON list of apps to test'
+        type: string
+        default: '["main","vendor","accounting","employees","driver"]'
+  push:
+    branches: [codex/coordinated-app-integration]
+    paths: [.github/workflows/android-app-acceptance.yml, scripts/android_published_smoke.py]
+permissions:
+  contents: read
+jobs:
+  published:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(inputs.apps || '["main","vendor","accounting","employees","driver"]') }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Enable the disposable Android test device
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          sdkmanager 'build-tools;35.0.0'
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: python scripts/android_published_smoke.py ${{ matrix.app }}
+      - name: Retain disposable Android screenshots and results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-android-${{ matrix.app }}
+          path: test-results/android-published
+          retention-days: 7

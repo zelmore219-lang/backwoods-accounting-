@@ -121,6 +121,10 @@ class Ledger:
         self.db.executescript(PROVIDER_SCHEMA)
         from .tax_watch import SCHEMA as TAX_SCHEMA
         self.db.executescript(TAX_SCHEMA)
+        from .payroll_management import SCHEMA as PAYROLL_MANAGEMENT_SCHEMA
+        self.db.executescript(PAYROLL_MANAGEMENT_SCHEMA)
+        from .employee_auth import SCHEMA as EMPLOYEE_ACCESS_SCHEMA
+        self.db.executescript(EMPLOYEE_ACCESS_SCHEMA)
         self.db.executemany("INSERT OR IGNORE INTO accounts VALUES(?,?,?)", ACCOUNTS)
         self.db.execute("INSERT OR IGNORE INTO settings VALUES('company','Backwoods Brew')")
         self.db.execute("INSERT OR IGNORE INTO settings VALUES('schema_version','1')")
@@ -192,7 +196,7 @@ class Ledger:
             if lines and not debit:
                 raise AccountingError(f"Zero-value journal entry {sid}")
 
-    def import_documents(self, source, documents, payload, filename="import.json", snapshot_at=None, accounts=(), preview=False, overrides=(), catalog=(), assets=()):
+    def import_documents(self, source, documents, payload, filename="import.json", snapshot_at=None, accounts=(), preview=False, overrides=(), catalog=(), assets=(), commit_hook=None):
         if source not in {"main", "vendor", "manual", "provider", "employees"}:
             raise AccountingError("Unrecognized source app")
         self.validate(documents, accounts)
@@ -293,6 +297,9 @@ class Ledger:
                     doc.get("reference", doc["id"]), doc.get("party", ""), doc.get("amount", 0),
                     doc.get("balance", 0), canonical(doc), batch))
             self.audit("import", {"batch": batch, "source": source, **counts})
+            # Internal domain operations (for example approved payroll) commit
+            # their receipt/state with the same postings, or roll back together.
+            if commit_hook is not None:commit_hook(self.db)
             self.db.commit()
             return {"batch": batch, **counts}
         except Exception:

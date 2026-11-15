@@ -33,6 +33,10 @@ def company_sign_in(app,email,password):
             with ledger.db:
                 ledger.db.execute('INSERT OR IGNORE INTO firebase_link VALUES(?,?,?)',(uid,owner['id'],email))
             token,user=auth.issue_session(ledger,owner)
+            # Retain the existing company-owner sign-in/recovery architecture.
+            # This proof comes from a fresh authenticated private-ledger read,
+            # not from an Employee display name or a staff role projection.
+            app.company_owner_sessions.add(hashlib.sha256(token.encode()).hexdigest())
             response={'user':user,'sessionToken':token}
         finally:ledger.close()
         link_initial_owner(app)
@@ -59,6 +63,8 @@ class SharedHandlerMixin:
             try:
                 if self.authorized():self.app.shared.refresh()
             except AccountingError as error:self.app.firebase_status={'connected':False,'message':'Showing cached books. '+str(error)}
+            if urlparse(self.path).path=='/api/payroll-management/export' and self.authorized():
+                with self.app.shared.mutation():return super().do_GET()
             return super().do_GET()
     def do_POST(self):
         path=urlparse(self.path).path
@@ -68,7 +74,7 @@ class SharedHandlerMixin:
         if private and not attaching:return super().do_POST()
         if not private and not attaching and (not self.authorized() or self.headers.get('X-Accounting-Request')!='1'):
             return super().do_POST()
-        if path in {'/api/costing/calculate','/api/pricing/calculate','/api/payroll/preview','/api/import/preview','/api/provider/flow','/api/provider/health','/api/tax-watch/check'}:
+        if path in {'/api/costing/calculate','/api/pricing/calculate','/api/payroll/preview','/api/import/preview','/api/provider/flow','/api/provider/health','/api/tax-watch/check','/api/payroll-management/employee-preview'}:
             with self.app.write_lock:return super().do_POST()
         self._buffer_shared_response=True;self._shared_response=None
         try:

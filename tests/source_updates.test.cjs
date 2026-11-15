@@ -113,9 +113,9 @@ test('prepared update packages include the profile helper, sender and renderer a
     assert(fs.existsSync(path.join(folder,kind==='main'?'www/index.html':'dist/index.html')));
   }
 });
-test('Main receipt repair bundle and unchanged wholesale bundle match reviewed baselines',()=>{
+test('Main navigation repair and preserved Vendor business logic match reviewed baselines',()=>{
   const cases=[
-    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'06401459736df487ae8e0096a9b1c1f274eb70d08c5b16a96056267f1bb1fdc1'},
+    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'3ba8df1dd053970edde939577e530959953a05e288b4046a26261d209ccc2504'},
     {kind:'vendor',file:'dist/assets/index-CWBa4KXx.js',sha:'7b639f76f6c0a6d541895bc4a6753d33ad237c7b4ac9074d7dcc260225043ec1'},
   ];
   for(const item of cases){
