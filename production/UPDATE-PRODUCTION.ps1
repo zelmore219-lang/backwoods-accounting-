@@ -29,6 +29,10 @@ foreach ($file in Get-ChildItem -LiteralPath $source -File) {
  if (Test-Path $old) { Copy-Item -LiteralPath $old -Destination $backup }
 }
 if (Test-Path (Join-Path $target 'vendor')) { Copy-Item -LiteralPath (Join-Path $target 'vendor') -Destination $backup -Recurse }
-# Copy only application files; the database and existing executable/runtime stay in place.
-Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force
+# Keep the existing screen shell, styles, icon and PWA files byte-for-byte.
+# app.js only adds background status and excludes packages assigned to Vendor.
+foreach ($entry in Get-ChildItem -LiteralPath $source) {
+ if ($entry.Name -in @('index.html','sw.js','manifest.json','icon.svg')) { continue }
+ Copy-Item -LiteralPath $entry.FullName -Destination $target -Recurse -Force
+}
 if (!$Quiet) { [System.Windows.Forms.MessageBox]::Show("Production background connection installed. Your existing Production screens and production tasks are retained. Original application files are in $backup. Reopen Production, then run CONNECT-EXISTING-APPS.cmd from this extracted folder for one-time company setup.", 'Backwoods Production') | Out-Null }
