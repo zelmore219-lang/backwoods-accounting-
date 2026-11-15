@@ -18,8 +18,17 @@ def adb(*args,check=True):
 assert adb('shell','getprop','ro.kernel.qemu').strip()=='1','Refusing to modify a physical or company Android device'
 
 def snapshot(stage):
- adb('shell','uiautomator','dump','/sdcard/backwoods-audit.xml')
- xml=adb('shell','cat','/sdcard/backwoods-audit.xml')
+ # UIAutomator can return success before producing a dump while WebView starts.
+ # Require a fresh, valid hierarchy instead of reusing a previous screen.
+ for attempt in range(5):
+  adb('shell','rm','-f','/sdcard/backwoods-audit.xml')
+  adb('shell','uiautomator','dump','/sdcard/backwoods-audit.xml',check=False)
+  xml=adb('shell','cat','/sdcard/backwoods-audit.xml',check=False)
+  if '<?xml' in xml:
+   try:ET.fromstring(xml[xml.index('<?xml'):]);break
+   except ET.ParseError:pass
+  time.sleep(1)
+ else:raise AssertionError('UIAutomator produced no valid fresh screen hierarchy: '+stage)
  (ROOT/(stage+'.xml')).write_text(xml)
  with (ROOT/(stage+'.png')).open('wb') as out:subprocess.run(['adb','exec-out','screencap','-p'],stdout=out,check=True,timeout=30)
  tree=ET.fromstring(xml[xml.index('<?xml'):])
@@ -84,7 +93,8 @@ if CANDIDATE_MANIFEST:
  assert 'application-debuggable' not in badge,'A production update must not be debuggable'
  assert f"name='{PACKAGE}'" in badge and f"versionCode='{staged['versionCode']}'" in badge and f"versionName='{staged['version']}'" in badge
  subprocess.run(['adb','root'],check=True);adb('wait-for-device');assert adb('shell','id','-u').strip()=='0'
- uid=re.search(r'userId=(\d+)',adb('shell','dumpsys','package',PACKAGE))[1]
+ uid=adb('shell','stat','-c','%u','/data/user/0/'+PACKAGE).strip()
+ assert uid.isdigit() and int(uid)>=10000,'The installed app must own its private data directory'
  marker='/data/user/0/'+PACKAGE+'/files/backwoods-audit-canary'
  adb('shell','mkdir','-p','/data/user/0/'+PACKAGE+'/files')
  subprocess.run(['adb','shell','tee',marker],input='disposable-record-preservation',capture_output=True,text=True,check=True)
@@ -92,7 +102,7 @@ if CANDIDATE_MANIFEST:
  adb('shell','restorecon','-RF','/data/user/0/'+PACKAGE+'/files')
  subprocess.run(['adb','install','-r',str(candidate)],check=True,timeout=120);open_app('upgraded-release')
  assert 'versionName='+staged['version'] in adb('shell','dumpsys','package',PACKAGE)
- assert re.search(r'userId=(\d+)',adb('shell','dumpsys','package',PACKAGE))[1]==uid
+ assert adb('shell','stat','-c','%u','/data/user/0/'+PACKAGE).strip()==uid
  assert adb('shell','cat',marker).strip()=='disposable-record-preservation'
  INFO=staged
 canary=adb('shell','run-as',PACKAGE,'mkdir','-p','files',check=False)
