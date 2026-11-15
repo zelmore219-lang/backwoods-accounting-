@@ -24,6 +24,7 @@ definitions['Waste']={kind:'writeoff',record:'writeoffs',fields:()=>field('batch
 definitions['Invoices'].headers.push('Approval');const invoiceRow=definitions['Invoices'].row;definitions['Invoices'].row=x=>[...invoiceRow(x),x.status==='Matched'?`<button onclick="action('approve_invoice','${x.id}')">Approve payable</button>`:''];
 const units=['lb','oz','g','kg','each','bag','case'].map(x=>({id:x,name:x}));
 let signedInRole = '';
+let backgroundConnectionActive=false,backgroundRefreshRunning=false;
 const costPages = ['Reports', 'Supplier pricing', 'Invoices', 'Integration queue', 'Employees'];
 const scheduleQuantity = new Intl.NumberFormat(undefined, {maximumFractionDigits: 6});
 const canManage = () => signedInRole === 'manager';
@@ -662,7 +663,24 @@ render = function () {
 };
 
 document.head.insertAdjacentHTML('beforeend', '<style>.workflow-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}nav summary{cursor:pointer;padding:13px 14px}nav details{margin-top:12px}nav details button{padding-left:24px}.bar{gap:10px;flex-wrap:wrap}.inventory-actions button+button{margin-left:6px}@media(max-width:850px){.workflow-cards{grid-template-columns:1fr}nav details{margin-top:0}}</style>');
-async function authenticate(){let me=await(await fetch('/api/me')).json();if(me.user){signedInRole=me.user.role;if(signedInRole!=='manager'){for(const item of costPages){const i=pages.indexOf(item);if(i>=0)pages.splice(i,1)}}document.querySelector('header span:nth-of-type(2)').textContent=me.user.name+' · '+me.user.role;document.querySelector('header').insertAdjacentHTML('beforeend','<button onclick="logout()">Sign out</button>');await load();return}nav.innerHTML='';view.innerHTML='<h1>Welcome to Backwoods.</h1><section style="max-width:440px"><h2>'+(me.setup?'Create your manager account':'Sign in')+'</h2><form id="login">'+(me.setup?field('name','Your name'):'')+field('username','Username')+field('password','Password (12+ characters)','password')+'<p id="loginerror"></p><button class="primary">Continue</button></form></section>';document.getElementById('login').onsubmit=async e=>{e.preventDefault();try{await post(me.setup?'setup':'login',Object.fromEntries(new FormData(e.target)));await authenticate()}catch(e){document.getElementById('loginerror').textContent=e.message}}}
+async function authenticate(){let me=await(await fetch('/api/me')).json();backgroundConnectionActive=!!me.central;if(me.user){signedInRole=me.user.role;if(signedInRole!=='manager'){for(const item of costPages){const i=pages.indexOf(item);if(i>=0)pages.splice(i,1)}}document.querySelector('header span:nth-of-type(2)').textContent=me.user.name+' · '+me.user.role;document.querySelector('header').insertAdjacentHTML('beforeend','<button onclick="logout()">Sign out</button>');await load();return}nav.innerHTML='';view.innerHTML='<h1>Welcome to Backwoods.</h1><section style="max-width:440px"><h2>'+(me.setup?'Create your manager account':'Sign in')+'</h2><form id="login">'+(me.setup?field('name','Your name'):'')+field('username','Username')+field('password','Password (12+ characters)','password')+'<p id="loginerror"></p><button class="primary">Continue</button></form></section>';document.getElementById('login').onsubmit=async e=>{e.preventDefault();try{await post(me.setup?'setup':'login',Object.fromEntries(new FormData(e.target)));await authenticate()}catch(e){document.getElementById('loginerror').textContent=e.message}}}
 async function logout(){await post('logout',{});location.reload()}
 window.addEventListener('offline',()=>{document.querySelector('header').insertAdjacentHTML('beforeend','<span>Offline · records require connection</span>')});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');authenticate().catch(e=>{console.error(e);view.innerHTML='<h1>Offline workspace</h1><p>Connect to the production server to sign in and update stock. Local drafts can be restored and reviewed from the header.</p>'});
+
+// Refresh background handoffs without changing the current screen or an open form.
+async function refreshBackgroundRecords(){
+ if(!backgroundConnectionActive || !signedInRole || backgroundRefreshRunning || document.hidden || modal.open)return;
+ backgroundRefreshRunning=true;
+ try{
+  const response=await fetch('/api/state');
+  if(response.status===401){backgroundConnectionActive=false;location.reload();return}
+  if(!response.ok)return;
+  const result=await response.json();if(!Array.isArray(result.records))return;
+  state=result;
+  if(!modal.open && !view.querySelector('input:focus,select:focus,textarea:focus'))render();
+ }catch(error){/* Saved records remain on the server; the next refresh retries. */}
+ finally{backgroundRefreshRunning=false}
+}
+setInterval(refreshBackgroundRecords,15000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshBackgroundRecords()});

@@ -2,7 +2,7 @@
 import argparse,json,os
 from pathlib import Path
 from playwright.sync_api import sync_playwright
-p=argparse.ArgumentParser();p.add_argument('--origin',required=True);p.add_argument('--output',required=True);p.add_argument('--package-only',action='store_true');args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--origin',required=True);p.add_argument('--output',required=True);p.add_argument('--package-only',action='store_true');p.add_argument('--observe-transfer');args=p.parse_args()
 out=Path(args.output);out.mkdir(parents=True,exist_ok=True)
 errors=[];checks=[]
 with sync_playwright() as browser_api:
@@ -28,6 +28,15 @@ with sync_playwright() as browser_api:
   page.get_by_role('button',name='Save record',exact=True).click();page.locator('#modal').wait_for(state='hidden')
   page.screenshot(path=str(out/'original-packaging-workflow.png'),full_page=True)
   checks.append('original packaging, inspection and release forms')
+ elif args.observe_transfer:
+  page.get_by_role('button',name='Ready to sell',exact=True).first.click()
+  page.get_by_role('button',name='Reserve stock',exact=True).wait_for()
+  Path(args.observe_transfer).write_text('Original screen loaded before transfer')
+  page.get_by_role('button',name='Reserve stock',exact=True).wait_for(state='detached',timeout=45000)
+  page.get_by_role('heading',name='Ready to sell',exact=True).wait_for()
+  assert page.get_by_role('heading',name='Assigned to Vendor',exact=True).count()==0
+  page.screenshot(path=str(out/'automatic-production-stock-refresh.png'),full_page=True)
+  checks.append('original screen automatically cleared after background transfer')
  else:
   for label,width,height in [('desktop',1440,1000),('tablet',820,1180),('phone',390,844)]:
    page.set_viewport_size({'width':width,'height':height})

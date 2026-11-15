@@ -56,4 +56,5 @@ foreach ($sku in $skus) {
 }
 $result = Send-Production 'integrations/sync' @{}
 Write-Host $result.message
-Write-Host 'Continue using Production as usual. Employee/Employer manages access; Accounting shows import status.'
+Write-Host 'Close and reopen Production, then sign in there with your Employee/Employer username and password.'
+Write-Host 'Continue using the same Production screens. Employee/Employer manages access; Accounting shows import status.'
