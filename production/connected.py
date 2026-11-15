@@ -84,7 +84,7 @@ def bridge(token,data,directory):
   from cryptography.hazmat.primitives.kdf.hkdf import HKDF
  except ImportError:raise ValueError('Install the connected Production runtime to enable the secure Employee bridge') from None
  config=unpack(http(BASE+'employeeService/config',token=credentials['token']))
- if config.get('project')!=PROJECT or config.get('protocol')!=PROTOCOL or config.get('productionBridgeVersion')!=1:raise ValueError('Update Employee/Employer Owner service to enable the Production bridge')
+ if config.get('project')!=PROJECT or config.get('protocol')!=PROTOCOL or config.get('productionBridgeVersion')!=2:raise ValueError('Update Employee/Employer Owner service to enable the Production bridge')
  uid=credentials['uid'];data={**data,'companyId':credentials['company']}
  raw=json.dumps({'method':'POST','path':'/api/production-bridge','data':data,'scope':'account'},sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
  if len(raw)>12*1024*1024:raise ValueError('Production synchronization exceeds the 12 MB bridge limit')

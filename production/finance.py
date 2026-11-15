@@ -76,7 +76,7 @@ def queue_releases(c,event):
   if abs(float(mapping['weight'])-float(b['output'])/float(b['packages']))>1e-8:raise ValueError('The package weight differs from this SKU mapping')
   if int(q)!=q:raise ValueError('Only whole finished packages can transfer to Vendor')
   transfer_id=str(uuid.uuid5(uuid.NAMESPACE_URL,setting(c,'source_id')+':'+row['id']+':'+event))
-  payload={'id':transfer_id,'sourceId':setting(c,'source_id'),'batchId':row['id'],'sku':b['sku'],'lot':b['lot'],'bestBy':b.get('best_by',''),'productId':mapping['product_id'],'quantity':int(q),'unitCost':str(Decimal(str(b['total']))/Decimal(str(b['packages']))),'weightLb':str(mapping['weight']),'createdAt':datetime.now(timezone.utc).isoformat()}
+  payload={'id':transfer_id,'sourceId':setting(c,'source_id'),'batchId':row['id'],'sku':b['sku'],'lot':b['lot'],'bestBy':b.get('best_by',''),'productId':mapping['product_id'],'quantity':int(q),'capacity':int(q+float(b.get('reserved',0))+float(b.get('vendor_transferred',0))),'unitCost':str(Decimal(str(b['total']))/Decimal(str(b['packages']))),'weightLb':str(mapping['weight']),'createdAt':datetime.now(timezone.utc).isoformat()}
   c.execute('INSERT INTO integration_transfers VALUES(?,?,?,NULL)',(transfer_id,json.dumps(payload),'pending'))
   b['vendor_transferred']=float(b.get('vendor_transferred',0))+q
   c.execute('UPDATE records SET data=? WHERE id=?',(json.dumps(b),row['id']))

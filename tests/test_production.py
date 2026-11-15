@@ -61,11 +61,20 @@ class ProductionTests(unittest.TestCase):
  def test_bulk_packaging_preserves_cost_and_held_lots_do_not_transfer(self):
   material=self.receive()
   with self.c:finance.baseline(self.c)
-  batch=self.make(material);self.act('quality',{'id':batch,'status':'Quarantined','notes':'Hold'})
+  self.act('recipe_versions',{'name':'Bulk peanuts','version':'1','batch_size':10,'expected_yield':8,'lines':[{'material':material,'quantity':10,'unit':'lb'}]});recipe=self.last('recipes')
+  self.act('approve_recipe',{'id':recipe})
+  self.act('manufacture',{'recipe':recipe,'scale':1,'output':8,'packages':1,'bulk':True,'sku':'BULK','lot':'BULK-1','labor':5,'overhead':3});bulk=self.last('batches')
+  self.act('quality',{'id':bulk,'status':'Approved','notes':'Bulk checked'})
+  self.act('package_inventory',{'batch':bulk,'packages':8,'weight_per_package':.5,'sku':'PEA-8','lot':'PACK-1','labor':2,'packaging_cost':1});batch=self.last('batches')
+  self.act('quality',{'id':batch,'status':'Quarantined','notes':'Hold'})
   with self.c:
    self.c.execute('INSERT INTO production_mappings VALUES(?,?,?)',('PEA-8','p',.5));finance.queue_releases(self.c,'held')
   self.assertEqual(self.c.execute('SELECT count(*) FROM integration_transfers').fetchone()[0],0)
-  self.post();self.assertEqual(self.balances().get('1200',0),0)
+  self.post();self.assertEqual(self.balances()['1260'],3300)
+  self.act('quality',{'id':batch,'status':'Approved','notes':'Resolved'})
+  self.act('quality',{'id':batch,'status':'Released for sale','notes':'Released'})
+  self.post();b=self.balances();self.assertEqual(b['1260'],1500);self.assertEqual(b['1200'],1800);self.assertEqual(b['5930'],-1100)
+  payload=json.loads(self.c.execute('SELECT payload FROM integration_transfers').fetchone()[0]);self.assertEqual(payload['capacity'],8)
  def test_failed_stock_operation_rolls_back_journal_and_quantity(self):
   material=self.receive()
   with self.c:finance.baseline(self.c)
