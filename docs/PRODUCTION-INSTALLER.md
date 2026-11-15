@@ -1,6 +1,6 @@
 # Backwoods Production for Windows
 
-Run **Backwoods-Production-Setup-1.0.0.exe** using the Windows account that owns your existing Production records. Close Production first, including its notification icon. Setup creates the desktop and Start menu shortcuts and an entry in Windows Installed apps.
+Run **Backwoods-Production-Setup-1.0.1.exe** using the Windows account that owns your existing Production records. Close Production first, including its notification icon. Setup creates the desktop and Start menu shortcuts and an entry in Windows Installed apps.
 
 The installer includes the original desktop launcher, Python 3.14 runtime, application and connection libraries. There is no Python installation or ZIP assembly step. If Microsoft WebView2 Runtime is missing, the included Microsoft-signed bootstrapper installs it; that step needs an internet connection.
 

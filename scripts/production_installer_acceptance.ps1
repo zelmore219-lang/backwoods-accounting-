@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $output = Join-Path (Get-Location) 'dist/production-installer'
-$installer = Join-Path $output 'Backwoods-Production-Setup-1.0.0.exe'
+$installer = Join-Path $output 'Backwoods-Production-Setup-1.0.1.exe'
 $homeDirectory = Join-Path $env:LOCALAPPDATA 'Backwoods Production'
 $app = Join-Path $homeDirectory 'Application'
 $dataDirectory = Join-Path $homeDirectory 'Data'
@@ -45,7 +45,7 @@ try {
   if (!(Test-Path -LiteralPath (Join-Path $app $name))) { throw ('Missing installed file: '+$name) }
  }
  $registration=Get-ItemProperty 'HKCU:/Software/Microsoft/Windows/CurrentVersion/Uninstall/BackwoodsProduction'
- if ($registration.DisplayVersion -ne '1.0.0' -or $registration.InstallLocation -ne $app) { throw 'Windows app registration is incomplete.' }
+ if ($registration.DisplayVersion -ne '1.0.1' -or $registration.InstallLocation -ne $app) { throw 'Windows app registration is incomplete.' }
  $shortcut=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'Backwoods Production.lnk'))
  if ($shortcut.TargetPath -ne (Join-Path $app 'Backwoods Production.exe')) { throw 'The desktop shortcut does not launch the original Production app.' }
  # Exercise normal launch, not just the test switch, and reject replacing a live app.
@@ -121,7 +121,7 @@ c.close()
  [IO.File]::WriteAllText($stopFile,'stop');$walProcess.WaitForExit(10000) | Out-Null
  if (!(Test-Path -LiteralPath $legacyDatabase) -or !(Test-Path -LiteralPath (Join-Path $stage 'retained-desktop-data/backwoods.db'))) { throw 'Migration removed an original database.' }
  Run-Window
- @{ sourceCommit=$env:GITHUB_SHA; version='1.0.0'; freshInstall=$true; originalDesktopLaunch=$true; nativeWebViewRender=$true; originalLauncherAndScreenAssetsPreserved=$true; installedConnectionOriginDetected=$true; legacyUpgrade=$true; reinstall=$true; applicationBackups=$true; existingDatabaseBytesPreserved=$true; nativePythonAndCryptography=$true; runningAppReplacementBlocked=$true; modifiedPayloadRejected=$true; uninstallPreservesRecordsAndUnrelatedFiles=$true; portableWalDatabaseMigratedWithoutDeletingOriginal=$true; otherAppFeedsChanged=$false } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ACCEPTANCE.json')
+ @{ sourceCommit=$env:GITHUB_SHA; version='1.0.1'; freshInstall=$true; originalDesktopLaunch=$true; nativeWebViewRender=$true; originalLauncherAndScreenAssetsPreserved=$true; installedConnectionOriginDetected=$true; legacyUpgrade=$true; reinstall=$true; applicationBackups=$true; existingDatabaseBytesPreserved=$true; nativePythonAndCryptography=$true; runningAppReplacementBlocked=$true; modifiedPayloadRejected=$true; uninstallPreservesRecordsAndUnrelatedFiles=$true; portableWalDatabaseMigratedWithoutDeletingOriginal=$true; otherAppFeedsChanged=$false } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ACCEPTANCE.json')
 } catch {
  $_ | Out-String | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ERROR.txt')
  if (Test-Path -LiteralPath (Join-Path $env:TEMP 'Backwoods-Production-Setup-error.txt')) { Get-Content -LiteralPath (Join-Path $env:TEMP 'Backwoods-Production-Setup-error.txt') | Add-Content -LiteralPath (Join-Path $output 'INSTALLER-ERROR.txt') }

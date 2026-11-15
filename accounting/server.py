@@ -654,6 +654,19 @@ class LocalHandler(BaseHTTPRequestHandler):
 
     def payroll_action(self,ledger,action,value):
         payroll_management.require_payroll(self.user)
+        if action in {'pest-preview','pest-connect'}:
+            from . import pest
+            payroll_management.require_payroll(self.user,owner=True)
+            with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
+            connection=payroll_management.settings(ledger)
+            if not connection:raise AccountingError('Connect Employee to these company books first')
+            packets=payload.get('pestAccounting',[])
+            if action=='pest-preview':
+                packet=next((p for p in packets if p.get('companyId')==connection['companies'][0]),None)
+                if not packet:raise AccountingError('In Pest Control, connect Employee and select Sync billing to Accounting first')
+                pest.prepare(packet)
+                return {'companyId':packet['companyId'],'department':'Pest Control','invoices':len(packet['invoices']),'project':packet['project']}
+            return pest.connect(ledger,self.user,workspace,packets,value)
         if action in {'employee-preview','employee-connect','sync'}:
             with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
             if action=='employee-preview':return {'workspace':workspace,'companies':payload['companies'],'employees':len(payload['employees']),'approvedPackets':len(payload['approvedPackets']),'issues':payload['issues']}

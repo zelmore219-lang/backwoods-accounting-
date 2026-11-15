@@ -99,6 +99,32 @@ class ProductionTests(unittest.TestCase):
  def test_unsigned_sync_worker_retains_status_without_crashing(self):
   import sync
   with patch.object(sync,'TOKEN',None):self.assertIsInstance(sync.run(production.connect),dict)
+ def test_production_inventory_and_existing_pest_billing_share_books_without_duplicate_posts(self):
+  from accounting import pest
+  from accounting.ledger import canonical
+  from tests.test_pest import packet as pest_packet
+  with self.c:finance.baseline(self.c)
+  material=self.receive();batch=self.make(material)
+  with self.c:self.c.execute('INSERT INTO production_mappings VALUES(?,?,?)',('PEA-8','vendor-product',.5))
+  self.act('quality',{'id':batch,'status':'Approved','notes':'Checked'})
+  self.act('quality',{'id':batch,'status':'Released for sale','notes':'Packaged and ready'})
+  self.post()
+  ledger=self.books.ledger()
+  try:
+   with ledger.db:ledger.db.execute('INSERT OR REPLACE INTO settings VALUES(?,?)',('employee_payroll_connection',canonical({'workspace':'existing-workspace','companies':['backwoods']})))
+   pest.connect(ledger,{'role':'owner'},'existing-workspace',[pest_packet()],{'companyId':'backwoods','confirmed':True})
+   before=ledger.report()['trial']
+   pest.synchronize(ledger,'existing-workspace',[pest_packet()])
+   balances={r['code']:r['balance'] for r in before}
+   self.assertEqual((balances['1200'],balances['1240'],balances['1260']),(3000,19800,0))
+   self.assertEqual((balances['1100'],balances['1030'],balances['4030']),(6800,4000,-10000))
+   self.assertEqual(ledger.report()['balanceDifference'],0)
+   self.assertEqual(ledger.db.execute("SELECT count(*) FROM documents WHERE source='pest'").fetchone()[0],2)
+  finally:ledger.close()
+  self.assertEqual(self.post()['added'],0)
+  ledger=self.books.ledger()
+  try:self.assertEqual(ledger.report()['trial'],before)
+  finally:ledger.close()
  def test_completed_packaged_release_matches_exact_vendor_sku_in_background(self):
   with self.c:finance.baseline(self.c)
   material=self.receive();batch=self.make(material)

@@ -72,7 +72,7 @@ try {
    Move-Item -LiteralPath $temporary -Destination $database
   } finally { if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary } }
  }
- $metadata = @{ version='1.0.0'; installedAt=(Get-Date).ToUniversalTime().ToString('o'); dataDirectory=$dataDirectory; applicationBackup=$backup }
+ $metadata = @{ version='1.0.1'; installedAt=(Get-Date).ToUniversalTime().ToString('o'); dataDirectory=$dataDirectory; applicationBackup=$backup }
  $metadata | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $target 'production-installation.json') -Encoding UTF8
  Write-Output 'Backwoods Production installed. Existing records and screen shell are preserved.'
 } catch {

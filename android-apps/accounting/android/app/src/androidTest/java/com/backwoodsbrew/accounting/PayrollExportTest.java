@@ -66,7 +66,7 @@ public class PayrollExportTest {
    Method open=MainActivity.class.getDeclaredMethod("openBooks");open.setAccessible(true);
    instrumentation.runOnMainSync(()->{try{CookieManager.getInstance().setCookie(origin,"bw_session="+fixture.getString("session")+"; Path=/; HttpOnly; SameSite=Strict");CookieManager.getInstance().flush();open.invoke(activity.get());}catch(Exception error){throw new RuntimeException(error);}});
    Field browserField=MainActivity.class.getDeclaredField("browser");browserField.setAccessible(true);WebView web=(WebView)browserField.get(activity.get());
-   ready(web,"document.querySelector('nav [data-view=\"payrollmanagement\"]')");
+   ready(web,"document.body.dataset.role==='owner' && document.querySelector('nav [data-view=\"payrollmanagement\"]')");
    js(web,"document.querySelector('nav [data-view=\"payrollmanagement\"]').click()");
    ready(web,"document.querySelector('[data-pm=\"open\"]')");
    js(web,"document.querySelector('[data-pm=\"open\"]').click()");

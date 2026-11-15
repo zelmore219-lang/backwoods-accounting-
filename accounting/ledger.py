@@ -197,7 +197,7 @@ class Ledger:
                 raise AccountingError(f"Zero-value journal entry {sid}")
 
     def import_documents(self, source, documents, payload, filename="import.json", snapshot_at=None, accounts=(), preview=False, overrides=(), catalog=(), assets=(), commit_hook=None):
-        if source not in {"main", "vendor", "production", "manual", "provider", "employees"}:
+        if source not in {"main", "vendor", "production", "manual", "provider", "employees", "pest"}:
             raise AccountingError("Unrecognized source app")
         self.validate(documents, accounts)
         if snapshot_at:

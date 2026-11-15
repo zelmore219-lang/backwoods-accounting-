@@ -24,8 +24,8 @@ android {
         applicationId "com.backwoodsbrew.main.connected"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 80210
-        versionName '8.2.10'
+        versionCode 80211
+        versionName '8.2.11'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -35,6 +35,8 @@ android {
     }
     buildTypes {
         release {
+            debuggable false
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
