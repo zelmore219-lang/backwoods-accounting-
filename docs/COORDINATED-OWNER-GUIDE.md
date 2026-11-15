@@ -17,6 +17,10 @@ The existing Driver release and Employee Android release are retained.
    needs no new Firebase project, billing plan, collection, service account or
    Firestore rules deployment. The service publishes its version and the private
    approved-payroll view inside its existing protected namespace.
+   **Owner service is a menu inside the Windows Employee app**, not another app
+   you need to download. Confirm **Owner service is online**, then sign in with
+   your existing Main username/password and confirm **Connected to your shared
+   Employee workspace**. The section below covers a first connection.
 3. **Owner, Employee → People → View** the actual person. Reuse their existing
    shared Backwoods login/verified UID. If necessary, use **Connected Backwoods
    accounts → Link employee record** after checking the exact person and UID.
@@ -47,6 +51,44 @@ The existing Driver release and Employee Android release are retained.
    unlinked company recovery accounts and the verified company-owner sign-in
    remain available. Staff never receive the company owner's Firebase token.
 
+## First connection on the owner Windows PC
+
+Skip these authorization steps if Owner service is already online. Keep using
+the Windows account and PC that hold the actual Employee records.
+
+1. **Owner, Firebase Console:** select the existing project
+   **backwoodsbrew-e3584-d52a3** with its actual Google owner account. Under
+   **Authentication → Sign-in method**, check the existing **Email/Password**
+   provider; the existing default **Firestore Database** should already exist.
+   Do not create another project or recreate the database. The Firebase free
+   plan can be used with this installed owner service.
+2. **Employee → Owner service → Connect or manage owner service… → Open Google
+   owner sign-in**. In the official Firebase CLI browser flow, choose **Yes, I
+   just ran this command**, compare the five-character session ID and choose
+   **Yes, this is my session ID**. Continue to **Step 3 of 3 — Copy code**.
+   The five-character session ID only identifies the session. Click **Copy** on
+   that final page, return to Employee and choose **Paste authorization code →
+   Complete connection**. The window also supports **Edit → Paste** and
+   **Ctrl+V**. Keep the authorization code out of chat.
+3. Select **Load owner records**. Choose the matching **Existing Employee owner**
+   and **Existing Main owner**. Confirm the displayed employee ID and username;
+   check **I verified these records belong to the same owner and this PC
+   contains the Employee data to share.** Approve a username change only if the
+   actual reviewed owner records require it. Optionally select **Start this
+   service when I sign into Windows.**
+4. Choose **Start shared Employee service**. Wait for **Owner service is online**;
+   “Starting” alone is not confirmation. Sign out and back into Employee with
+   the existing Main username/password. Confirm the connected-workspace banner
+   and the same existing Employee IDs. Later starts use **Start service** and
+   normally reuse the saved authorization.
+
+Public Firebase client settings are built in. The owner connection is encrypted
+with Windows DPAPI; devices discover the public service configuration and cannot
+read the owner's private Google credential. No service-account JSON, billing
+upgrade, Cloud Function or Cloud Run deployment is needed. Setup does not deploy
+Firestore rules. A permission error requires review of the existing protected
+Employee relay rules while preserving Main/Vendor rules; never make them public.
+
 ## Paper onboarding without uploads
 
 1. **Owner:** **People → View → Prepare paper onboarding packet**. Enter the
@@ -55,6 +97,10 @@ The existing Driver release and Employee Android release are retained.
    timezone automatically. W-4, Alabama A-4, I-9, handbook acknowledgment and
    emergency contact assignments are created. Unfinished starter handbook/
    emergency drafts are replaced; signed versions are preserved on retries.
+   **Packet approval date (automatic)** updates in the company timezone.
+   **Handbook version or reference (optional)** can be left blank. Keep the five original paper
+   forms in their actual appropriate restricted files; the app records their
+   completion and review, not their sensitive contents.
 2. **Employee:** complete the actual paper originals, sign into Employee and use
    **My workspace → View → Acknowledge paper completion → Sign acknowledgment**
    for each required document. No file upload is needed.
@@ -65,6 +111,21 @@ The existing Driver release and Employee Android release are retained.
 4. **Owner/employee:** finish shared login/password, required training and its
    authorized verification, then **Activate employee**. The dialog lists each
    incomplete requirement, the responsible person and the screen to use.
+   Employees use **Training → Mark completed**; a different authorized manager
+   uses **Training → Verify**, confirms the evidence and selects **Save**.
+   On the activation dialog, check **I have reviewed required onboarding and
+   account checks** and select **Activate employee**. Confirm status **active**
+   and the activation in **Audit trail**. A shared login alone does not activate
+   employment, and payroll enrollment is not an activation requirement.
+
+For the old **Account setup is incomplete** error, the exact server condition
+was `identities.setup_complete != 1`. Provisioning or verified linking completes
+that setup on the existing Employee record; creating another draft is not a
+repair. The server also checks required approved documents, temporary-password
+changes, actual job assignment, verified training and any assigned shared access.
+Three Wholesale mapping warnings mean three problematic source records, not
+three employees or proof of three link attempts. Review their exact document
+paths and verified Firebase identities before linking.
 
 ## Clock, review and approve
 
@@ -136,6 +197,11 @@ The existing Driver release and Employee Android release are retained.
   employer/employee records. Complete that service's required employee payroll
   and payment/tax configuration there. Keep protected tax forms and banking
   information in the established secure workflow, not a Backwoods CSV upload.
+- **HR.my setup:** **Employee → Management**: review the actual person, matching
+  Employee ID and pay cycle; invite their Employee Web Account if needed.
+  **Payroll → Salary Adjustment**: maintain recurring pay and effective dates.
+  For hourly pay, first configure **Payroll → Earning**, then add that item to
+  the employee's Salary Adjustment. Confirm the actual rate and cycle.
 - Enter or import the reviewed wages, regular/OT hours, bonuses, commissions,
   reimbursements and authorized deductions using the provider's actual
   supported workflow. The general Backwoods CSV/Excel is a review worksheet;
@@ -144,6 +210,13 @@ The existing Driver release and Employee Android release are retained.
   deposits and filings through the provider/services that you really use.
   Backwoods makes no promise about HR.my's country-specific compliance or
   payment capabilities and does not send money or file returns.
+- **HR.my run:** **Payroll → Process**: select the actual cycle and period,
+  prepare as draft, select employees, enter/review Salary Items and choose
+  **PROCESS**. Inspect the resulting payslips before publishing; download the
+  actual Excel result. Confirm the employee can see the published payslip.
+  [HR.my payroll instructions](https://www.hr.my/doc/payroll.html) and
+  [employee instructions](https://www.hr.my/doc/employee-management.html)
+  describe these external screens. There is no automatic Backwoods transfer.
 - Save the actual provider receipt and final payroll report. Backwoods requires
   an actual confirmation reference before calling a batch received.
 
