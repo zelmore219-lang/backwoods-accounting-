@@ -57,7 +57,7 @@ Sign in to Pest with your existing Pest username/password. Open **Employee & Acc
 
 In Pest **Employee & Accounting → Pest time clock**, select the actual **Pest Control job** and use **Clock In / Clock Out**. A missing job is fixed in Employee **Job assignments**, not by inventing a location or rate.
 
-Offline punches stay on the original device with their original timestamps and request identifiers. Once online, select **Retry saved clock actions**. Keep that device's data until it reports zero retained actions. Offline/delayed time requires office review.
+Offline punches stay on the original device with their original timestamps and request identifiers. Once online, select **Retry saved clock actions**. Keep that device's data until it reports zero retained actions. Offline/delayed time requires office review. These punches retain device-captured timestamps as evidence, while the official card starts with server receipt times. Confirm the actual work times with the employee and use **Review → Action: Correct and return to pending review → Save review** before approving/finalizing payroll. The corrected clock fields are explicitly UTC: convert the confirmed local times for the actual date, then complete the separate approval; a brief retry interval must not be treated as the full offline shift.
 
 Owner / authorized manager: Employee **Time & attendance → Shared time cards → Refresh**. Find the Pest source and Pest Control job/location. Review actual punches, breaks and any requested correction, then approve or deny. Use audited corrections when necessary; keep original timestamps. A different authorized person reviews the employee's time; self-approval is blocked.
 
