@@ -166,7 +166,7 @@ Section "Backwoods Production"
  SetShellVarContext current
  InitPluginsDir
  SetOutPath "$PLUGINSDIR\\production-payload"
- File /r "{q(payload)}/*"
+ File /r "{q(payload / '*')}"
  nsExec::ExecToStack '"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\\production-payload\\Install-Production.ps1" -TargetDirectory "$INSTDIR"'
  Pop $0
  Pop $1
