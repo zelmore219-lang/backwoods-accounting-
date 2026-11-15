@@ -72,7 +72,8 @@ public class PayrollExportTest {
    js(web,"document.querySelector('[data-pm=\"open\"]').click()");
    ready(web,"document.querySelector('a[data-pm-download][href*=xlsx]')");
    assertTrue(js(web,"document.body.innerText").contains("762.50"));
-   Instrumentation.ActivityMonitor picker=instrumentation.addMonitor(new IntentFilter(Intent.ACTION_CREATE_DOCUMENT),new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
+   IntentFilter pickerFilter=new IntentFilter(Intent.ACTION_CREATE_DOCUMENT);pickerFilter.addCategory(Intent.CATEGORY_OPENABLE);pickerFilter.addDataType("*/*");
+   Instrumentation.ActivityMonitor picker=instrumentation.addMonitor(pickerFilter,new Instrumentation.ActivityResult(Activity.RESULT_CANCELED,null),true);
    try{
     tap(web,"a[data-pm-download][href*=xlsx]");
     for(int i=0;i<100&&picker.getHits()==0;i++)Thread.sleep(100);

@@ -274,6 +274,7 @@ jobs:
             adb install -r "$(cat dist/accounting-accepted-apk.txt)"
             adb install -r android-apps/accounting/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r -e class com.backwoodsbrew.accounting.PayrollExportTest com.backwoodsbrew.accounting.test/androidx.test.runner.AndroidJUnitRunner | tee dist/accounting-native-payroll.log
+            adb logcat -d -s System.out:I chromium:W TestRunner:I
             python -c "from pathlib import Path;s=Path('dist/accounting-native-payroll.log').read_text();assert 'OK (1 test)' in s and 'FAILURES' not in s,s"
 
   publish:
