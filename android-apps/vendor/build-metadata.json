@@ -1,6 +1,6 @@
 {
-  "versionName": "4.1.10",
-  "versionCode": 40110,
+  "versionName": "4.1.11",
+  "versionCode": 40111,
   "source": "vendor",
   "accountingRoute": "authenticated Firebase accounting snapshots; automatic server ingestion after one-time deployment"
 }

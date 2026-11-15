@@ -1,0 +1,61 @@
+name: Activate accepted Production-compatible app updates
+on:
+  push:
+    branches: [codex/production-suite-integration]
+    paths: [.github/workflows/activate-production-app-updates.yml]
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: Verify exact accepted packages without activating the feed
+        type: boolean
+        default: true
+permissions:
+  contents: write
+concurrency:
+  group: backwoods-app-updates
+  cancel-in-progress: false
+jobs:
+  activate:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ACCEPTED_SOURCE: cb77cb90778b33f6840f9e091d4fcf494fa9b2e7
+      ACCEPTED_RUN: '43724739526'
+      RELEASE_TAG: apps-production-pest-2026-11-15
+      CHECK_ONLY: ${{ inputs.check_only }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify source, exact acceptance and every package before activation
+        run: |
+          python scripts/verify_reused_build.py "$ACCEPTED_SOURCE"
+          python - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          repo=os.environ['GITHUB_REPOSITORY'];run=os.environ['ACCEPTED_RUN'];sha=os.environ['ACCEPTED_SOURCE'];tag=os.environ['RELEASE_TAG']
+          def api(path):return json.loads(subprocess.check_output(['gh','api','repos/'+repo+'/'+path],text=True))
+          acceptance=api('actions/runs/'+run)
+          assert acceptance['status']=='completed' and acceptance['conclusion']=='success' and acceptance['head_sha']==sha
+          jobs=api('actions/runs/'+run+'/jobs')['jobs']
+          required={'build','windows-acceptance','android-accounting-acceptance','android-release-upgrade (main)','android-release-upgrade (vendor)','android-release-upgrade (accounting)'}
+          assert required<={j['name'] for j in jobs}
+          assert all(j['status']=='completed' and j['conclusion']=='success' for j in jobs if j['name'] in required)
+          out=Path('dist/accepted-activation');out.mkdir(parents=True)
+          subprocess.run(['gh','release','download',tag,'--repo',repo,'--dir',str(out)],check=True)
+          feed=json.loads((out/'backwoods-updates.json').read_text());assert feed['sourceCommit']==sha
+          assert {k:v['windows']['version'] for k,v in feed['apps'].items()}=={'main':'8.2.11','vendor':'4.1.11','accounting':'1.0.12'}
+          for entry in feed['apps'].values():
+           for platform in ['windows','android']:
+            info=entry[platform];assert info['url'].startswith('https://github.com/'+repo+'/releases/download/'+tag+'/')
+            file=out/info['url'].rsplit('/',1)[1]
+            with file.open('rb') as stream:actual=hashlib.file_digest(stream,'sha256').hexdigest()
+            assert file.stat().st_size==info['size'] and actual==info['sha256']
+          print('Verified exact native Windows/Android acceptance and all six published package digests')
+          PY
+      - name: Activate the existing app feed after verified package delivery
+        if: inputs.check_only == false
+        run: python scripts/publish_updates.py --tag "$RELEASE_TAG" --directory dist/accepted-activation

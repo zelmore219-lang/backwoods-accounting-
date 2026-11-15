@@ -1,0 +1,71 @@
+name: Verify retained Production Windows update
+on:
+  push:
+    branches: [codex/production-suite-integration]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  production-windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Build the connected application update
+        run: python scripts/build_production_update.py
+      - name: Verify original desktop, application update, cryptography and retained data
+        shell: pwsh
+        run: ./scripts/production_native_acceptance.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Production-Windows-connection-update
+          path: |
+            dist/production/*
+            ${{ runner.temp }}/production-connection-native/Application/verification-error.txt
+          retention-days: 14
+  production-installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prepare the exact Production source update
+        run: python scripts/build_production_update.py
+      - name: Install the Windows setup compiler
+        shell: pwsh
+        run: choco install nsis --no-progress -y
+      - name: Build the complete Production Windows installer
+        shell: pwsh
+        run: python scripts/build_production_installer.py --nsis "${env:ProgramFiles(x86)}/NSIS/makensis.exe"
+      - name: Verify fresh install, legacy upgrade, records, running-app guard and uninstall
+        shell: pwsh
+        run: ./scripts/production_installer_acceptance.ps1
+      - name: Retain only the accepted Production installer and its evidence
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/stage-ci-release.py --prefix production-installer-build 'dist/production-installer/Backwoods-Production-Setup-*.exe' 'dist/production-installer/*.sha256' 'dist/production-installer/*-MANIFEST.json' 'dist/production-installer/BUILD-PROVENANCE.json' 'dist/production-installer/INSTALLER-ACCEPTANCE.json' 'dist/production-installer/INSTALL-README.txt'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Production-Windows-installer
+          path: |
+            dist/production-installer/Backwoods-Production-Setup-*.exe
+            dist/production-installer/*.sha256
+            dist/production-installer/*-MANIFEST.json
+            dist/production-installer/BUILD-PROVENANCE.json
+            dist/production-installer/INSTALLER-*.json
+            dist/production-installer/INSTALLER-*.txt
+            dist/production-installer/INSTALL-README.txt
+            dist/production-installer/verification-error.txt
+          retention-days: 14

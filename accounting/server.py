@@ -89,7 +89,7 @@ class Application:
                     if not link:raise AccountingError('Link the Firebase account from the owner settings before importing cloud records.')
                 receipts=self.firebase_status.get('sources',{})
                 self.firebase_status={'connected':True,'message':'Firebase connected. Checking retail and wholesale records.','sources':receipts}
-                for source in ['main','vendor']:
+                for source in ['main','vendor','production']:
                     try:
                         with self.firebase_lock:result=self.firebase.snapshot(source,hashes.get(source))
                         if result:
@@ -185,7 +185,7 @@ class Application:
             # A source app that already mirrored vendor records must flag them.
             # Catch obvious unmarked duplicate invoice references across feeds.
             for doc in documents:
-                if doc['kind']=='purchase-receipt' and doc['balance']<ledger.allocations().get((source,doc['id']),0):
+                if doc['kind'] in {'purchase-receipt','production-payable'} and doc['balance']<ledger.allocations().get((source,doc['id']),0):
                     raise AccountingError('A changed receipt is below payments already recorded in Business Accounting; review the supplier credit')
                 if doc["kind"]=="invoice" and doc["lines"]:
                     duplicate=ledger.db.execute("SELECT source,source_id FROM documents WHERE source<>? AND kind='invoice' AND reference=? AND amount=?",(source,doc["reference"],doc["amount"])).fetchone()
@@ -218,7 +218,7 @@ class Application:
         while not self.stop.is_set():
             if self.shared.connected():
                 self.stop.wait(15);continue
-            for source in ["main","vendor"]:
+            for source in ["main","vendor","production"]:
                 p=self.feed_dir/(source+".json")
                 if not p.exists():continue
                 try:
@@ -372,7 +372,7 @@ class LocalHandler(BaseHTTPRequestHandler):
                 except AccountingError as exc:value['payrollConnection']={'connected':False,'error':str(exc)}
                 value['aging']=[]
                 allocations=ledger.allocations()
-                for r in ledger.db.execute("SELECT source,source_id,payload FROM documents WHERE kind IN ('invoice','bill','support-invoices','support-bills') AND balance>0"):
+                for r in ledger.db.execute("SELECT source,source_id,payload FROM documents WHERE kind IN ('invoice','bill','support-invoices','support-bills','production-payable') AND balance>0"):
                     d=json.loads(r['payload']);due=d.get('original',{}).get('dueDate')
                     try:due=day(due) if due else None
                     except AccountingError:due=None
@@ -383,7 +383,7 @@ class LocalHandler(BaseHTTPRequestHandler):
                 value['firebaseStatus']=dict(self.app.firebase_status)
                 value['sharedLedger']=bool(getattr(self.app.firebase,'connection',None))
                 value["feeds"]={}
-                for source in ["main","vendor"]:
+                for source in ["main","vendor","production"]:
                     p=self.app.feed_dir/(source+"-status.json")
                     if p.exists():
                         try:value["feeds"][source]=json.loads(p.read_text())
@@ -599,7 +599,7 @@ class LocalHandler(BaseHTTPRequestHandler):
                         self.respond({'duplicates':1,'added':0});return
                     source=value.get('source','manual')
                     r=ledger.db.execute("SELECT * FROM documents WHERE source=? AND source_id=?",(source,value.get("id"))).fetchone()
-                    local_receipt=bool(r and source=='vendor' and r['kind']=='purchase-receipt')
+                    local_receipt=bool(r and ((source=='vendor' and r['kind']=='purchase-receipt') or (source=='production' and r['kind']=='production-payable')))
                     if not r or not (local_receipt or (source=='manual' and r["kind"] in {"invoice","bill"})):raise AccountingError("Record source-app customer payments in their original app")
                     amount=cents(value.get("amount"))
                     balance=r['balance']-ledger.allocations().get((source,value.get('id')),0)
@@ -654,6 +654,19 @@ class LocalHandler(BaseHTTPRequestHandler):
 
     def payroll_action(self,ledger,action,value):
         payroll_management.require_payroll(self.user)
+        if action in {'pest-preview','pest-connect'}:
+            from . import pest
+            payroll_management.require_payroll(self.user,owner=True)
+            with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
+            connection=payroll_management.settings(ledger)
+            if not connection:raise AccountingError('Connect Employee to these company books first')
+            packets=payload.get('pestAccounting',[])
+            if action=='pest-preview':
+                packet=next((p for p in packets if p.get('companyId')==connection['companies'][0]),None)
+                if not packet:raise AccountingError('In Pest Control, connect Employee and select Sync billing to Accounting first')
+                pest.prepare(packet)
+                return {'companyId':packet['companyId'],'department':'Pest Control','invoices':len(packet['invoices']),'project':packet['project']}
+            return pest.connect(ledger,self.user,workspace,packets,value)
         if action in {'employee-preview','employee-connect','sync'}:
             with self.app.firebase_lock:workspace,payload=payroll_management.employee_feed(self.app.firebase)
             if action=='employee-preview':return {'workspace':workspace,'companies':payload['companies'],'employees':len(payload['employees']),'approvedPackets':len(payload['approvedPackets']),'issues':payload['issues']}

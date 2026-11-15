@@ -3,7 +3,7 @@
 // Existing broad catch-all grants must not override these protections.
 match /businessAccounting/{ownerUid}/sources/{source} {
   function owner() { return signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner()); }
-  function validSource() { return source in ['main', 'vendor']; }
+  function validSource() { return source in ['main', 'vendor', 'production']; }
   allow read: if owner() && validSource();
   allow create, update: if owner() && validSource()
     && request.resource.data.keys().hasOnly(['schemaVersion','generation','sha256','chunkCount','bytes','exportedAt'])

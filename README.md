@@ -129,3 +129,7 @@ If `npm ci` says the lockfile is missing, make sure you extracted the **entire Z
 ## App updates
 
 Main, Vendor and Business Accounting now include Windows and Android update wizards. See [the update and GitHub setup guide](UPDATING.md) for the one-time installation, signing compatibility, and the Actions workflow used to publish future updates.
+
+## Production connection update
+
+The recovered Production source and its Employee/Employer access, Vendor stock and company Accounting connections are in [production](production/README.md). Follow the [connection setup](docs/PRODUCTION-CONNECTIONS.md) before activating the same company. Application source/tests are included; actual live activation is separate from fixture verification.

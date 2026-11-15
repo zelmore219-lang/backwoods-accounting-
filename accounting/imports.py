@@ -65,7 +65,7 @@ def unwrap(payload):
 
 def sanitize_payload(payload,source):
     data=unwrap(payload)
-    financial={'accounts','generalLedger','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores','depreciationRuns','businessLoans','fixedAssets','bankImports','bankReconciliations','customers','suppliers','purchaseOrders','purchaseReceipts','supplierInvoices','credits','inventoryMovements','driverSettlements'}
+    financial={'sourceId','baselineDate','productionJournals','productionRecords','accounts','generalLedger','orders','invoices','bills','expenses','journalEntries','payrollRuns','salesTaxPayments','payrollTaxPayments','wasteLogs','greenCoffeeLots','roastBatches','voids','refunds','receiptAttachments','payments','inventory','products','stores','depreciationRuns','businessLoans','fixedAssets','bankImports','bankReconciliations','customers','suppliers','purchaseOrders','purchaseReceipts','supplierInvoices','credits','inventoryMovements','driverSettlements'}
     forbidden={'password','passwordhash','passwordsalt','accesstoken','refreshtoken','clientsecret','privatekey','ssn','socialsecuritynumber','routingnumber','bankaccountnumber','apikey'}
     def clean(value):
         if isinstance(value,dict):return {k:clean(v) for k,v in value.items() if re.sub(r'[^a-z]','',k.lower()) not in forbidden}
@@ -302,6 +302,9 @@ def vendor_import(payload):
         raise AccountingError("Supplier invoice schema is not present in the supplied app build; review its fields before posting to avoid counting received goods twice")
     for r in data.get("inventoryMovements",[]):
         type_=r.get("type")
+        if type_=="production_transfer":
+            if not r.get("productionTransferId"):raise AccountingError("Production transfer has no original receipt")
+            continue
         if type_=="purchase_receipt":
             if str(r.get("referenceId")) not in receipts:raise AccountingError("Purchase movement has no corresponding receipt")
             continue
@@ -371,7 +374,36 @@ def employee_time_import(payload):
             docs.append(record(kind,original,[],party=item.get('employee',''),reference=item.get('employeeNumber') or item['employeeId']))
     return docs,[],['Approved time and PTO only: no payroll, tax liability or payment is posted by this import. Estimated gross wages are before deductions; process payroll in Business Accounting using the actual payroll results.']
 
+def production_import(payload):
+    data=unwrap(payload)
+    if not isinstance(data.get('productionJournals'),list) or not data.get('sourceId'):
+        raise AccountingError('A complete Production journal snapshot is required')
+    accounts=[('1200','Vendor Inventory','asset'),('1240','Production Materials','asset'),('1250','Work in Process','asset'),('1260','Production Finished Goods','asset'),('1150','Supplier Credits Receivable','asset'),('2000','Accounts Payable','liability'),('2010','Production Received Not Invoiced','liability'),('3100','Opening Balance Equity','equity'),('5190','Production Inventory Variance','expense'),('5930','Capitalized Production Cost Recovery','expense')]
+    allowed={a[0] for a in accounts};docs=[];seen=set()
+    for r in data['productionJournals']:
+        sid=identifier(r)
+        if sid in seen:raise AccountingError('Duplicate Production event ID')
+        seen.add(sid);lines=r.get('lines')
+        if not isinstance(lines,list) or not lines:raise AccountingError('Production event has no journal lines')
+        for item in lines:
+            if item.get('account') not in allowed or any(type(item.get(k)) is not int or item[k]<0 for k in ['debit','credit']) or (item['debit'] and item['credit']):
+                raise AccountingError('Production journal amounts must be nonnegative integer cents with a supported account')
+        if sum(i['debit']-i['credit'] for i in lines):raise AccountingError('Unbalanced Production journal')
+        doc=record('production-journal',r,lines,date_=r.get('date'));doc['id']='production:'+str(data['sourceId'])+':'+sid
+        docs.append(doc)
+    suppliers={r['id']:r.get('data',{}).get('name',r['id']) for r in data.get('productionRecords',[]) if r.get('kind')=='suppliers'}
+    for r in data.get('productionRecords',[]):
+        sid=identifier(r);value=r.get('data',{})
+        doc=record('production-support',{'id':sid,'date':value.get('date') or data.get('baselineDate') or '1970-01-01','memo':str(r.get('kind',''))},[],reference=sid)
+        doc['original']=r;doc['id']='production-support:'+str(data['sourceId'])+':'+sid
+        if r.get('kind')=='invoices' and value.get('status')=='Approved':
+            doc.update(kind='production-payable',party=str(suppliers.get(value.get('supplier'),value.get('supplier',''))),reference=str(value.get('number',sid)),amount=money(value,'amount'),balance=money(value,'amount'))
+        docs.append(doc)
+    return docs,accounts,[]
+
+
 def prepare(payload, source):
+    if source=='production':return production_import(payload)
     if source=='employees':return employee_time_import(payload)
     if source=="vendor":return vendor_import(payload)
     if source=="main":return main_import(payload)
@@ -380,6 +412,20 @@ def prepare(payload, source):
 
 def catalog_items(payload,source):
     data=unwrap(payload)
+    if source=='production':
+        result=[]
+        for row in data.get('productionRecords',[]):
+            value=row.get('data',{});kind=row.get('kind')
+            if kind=='materials':
+                count=value.get('quantity',0);unit=value.get('unit','lb');cost=value.get('cost',0);reserved=0
+            elif kind=='batches' and value.get('status')!='In Production':
+                count=float(value.get('packages',0))-sum(float(value.get(k,0)) for k in ['delivered','written_off','converted_units','vendor_transferred'])+float(value.get('returned',0))
+                reserved=value.get('reserved',0);unit='lb' if value.get('bulk') else 'each'
+                if value.get('bulk'):count=count*float(value['output'])/float(value['packages']);reserved=float(reserved)*float(value['output'])/float(value['packages'])
+                cost=value.get('per_lb',0) if value.get('bulk') else value.get('unit',0)
+            else:continue
+            result.append({'id':str(row['id']),'sku':str(value.get('sku','')),'name':str(value.get('name',row['id'])),'location':'Production','onHand':max(0,float(count)),'reserved':float(reserved),'unitCost':str(cost),'unit':unit,'caseQty':1,'reorderLevel':float(value.get('reorder',0)),'price':'0'})
+        return result
     products={str(p.get('id')):p for p in data.get('products',[]) if p.get('id') is not None}
     rows=data.get('inventory',[]) if source=='main' else data.get('products',[])
     result=[]

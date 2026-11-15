@@ -66,10 +66,28 @@ service cloud.firestore {
       allow create, update: if hasActiveVendorProfile();
       allow delete: if isVendorManager();
     }
+    function productionStockSafe() {
+      return (!resource.data.get('productionManaged', false) && !request.resource.data.get('productionManaged', false)) ||
+        (resource.data.get('productionManaged', false) && request.resource.data.get('productionManaged', false) &&
+         request.resource.data.productionSourceId == resource.data.productionSourceId &&
+         request.resource.data.sku == resource.data.sku && request.resource.data.unit == resource.data.unit &&
+         request.resource.data.stockRevision is int &&
+         ((!request.resource.data.diff(resource.data).affectedKeys().hasAny(['onHand','reserved','cost','damagedStock','expiredStock','quarantineStock']) && request.resource.data.stockRevision == resource.data.stockRevision) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasAny(['onHand','reserved','cost','damagedStock','expiredStock','quarantineStock']) && request.resource.data.stockRevision == resource.data.stockRevision + 1)) &&
+         request.resource.data.onHand >= 0 && request.resource.data.reserved >= 0 && request.resource.data.reserved <= request.resource.data.onHand);
+    }
     match /vendorProducts/{productId} {
       allow read: if hasActiveVendorProfile();
-      allow create, update: if isVendorManager() || isVendorWarehouse();
-      allow delete: if isVendorManager();
+      allow create: if (isVendorManager() || isVendorWarehouse()) && !request.resource.data.get('productionManaged', false);
+      allow update: if (isVendorManager() || isVendorWarehouse()) && productionStockSafe();
+      allow delete: if isVendorManager() && !resource.data.get('productionManaged', false);
+      match /stockOperations/{operationId} {
+        allow read: if hasActiveVendorProfile();
+        allow create: if (isVendorManager() || isVendorWarehouse()) && request.resource.data.uid == request.auth.uid &&
+          request.resource.data.keys().hasOnly(['uid','token','revision','createdAt']) &&
+          request.resource.data.revision == getAfter(/databases/$(database)/documents/vendorProducts/$(productId)).data.stockRevision;
+        allow update, delete: if false;
+      }
     }
     match /vendorOrders/{orderId} {
       allow read: if hasActiveVendorProfile();
@@ -223,7 +241,7 @@ service cloud.firestore {
     // Existing broad catch-all grants must not override these protections.
     match /businessAccounting/{ownerUid}/sources/{source} {
       function owner() { return signedIn() && request.auth.uid == ownerUid && (adminEmail() || (hasActiveProfile() && role() in ['owner','admin','administrator']) || isVendorOwner()); }
-      function validSource() { return source in ['main', 'vendor']; }
+      function validSource() { return source in ['main', 'vendor', 'production']; }
       allow read: if owner() && validSource();
       allow create, update: if owner() && validSource()
         && request.resource.data.keys().hasOnly(['schemaVersion','generation','sha256','chunkCount','bytes','exportedAt'])

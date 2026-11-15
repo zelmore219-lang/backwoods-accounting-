@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY,kind TEXT NOT NULL,data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,name TEXT NOT NULL,username TEXT NOT NULL UNIQUE,salt TEXT NOT NULL,password TEXT NOT NULL,role TEXT NOT NULL CHECK(role IN ('manager','operator','purchasing')));
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS lots(id TEXT PRIMARY KEY,material TEXT NOT NULL,supplier TEXT,source_lot TEXT NOT NULL,quantity REAL NOT NULL CHECK(quantity>=0),cost REAL NOT NULL,expires TEXT,location TEXT,status TEXT NOT NULL DEFAULT 'Approved');
+CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY,kind TEXT NOT NULL,data TEXT NOT NULL,created TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS movements(id TEXT PRIMARY KEY,material TEXT NOT NULL,quantity REAL NOT NULL,lot TEXT NOT NULL,event TEXT NOT NULL,created TEXT NOT NULL);
+CREATE TRIGGER IF NOT EXISTS immutable_events_update BEFORE UPDATE ON events BEGIN SELECT RAISE(ABORT,'Immutable audit history'); END;
+CREATE TRIGGER IF NOT EXISTS immutable_events_delete BEFORE DELETE ON events BEGIN SELECT RAISE(ABORT,'Immutable audit history'); END;
+CREATE TRIGGER IF NOT EXISTS immutable_movements_update BEFORE UPDATE ON movements BEGIN SELECT RAISE(ABORT,'Immutable stock history'); END;
+CREATE TRIGGER IF NOT EXISTS immutable_movements_delete BEFORE DELETE ON movements BEGIN SELECT RAISE(ABORT,'Immutable stock history'); END;

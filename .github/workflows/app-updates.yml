@@ -26,6 +26,10 @@ on:
         description: 'Retain exact published Main/Vendor bytes after verifying unchanged runtime sources'
         default: false
         type: boolean
+      reuse_main:
+        description: 'Retain exact published Main bytes when Vendor and Accounting change'
+        default: false
+        type: boolean
       reuse_build_sha:
         description: 'Retest exact staged packages after CI/test-only changes; runtime changes are rejected'
         required: false
@@ -52,6 +56,7 @@ jobs:
       MAIN_VERSION: ${{ inputs.main_version }}
       REUSE_ACCOUNTING: ${{ inputs.reuse_accounting }}
       REUSE_SOURCE_APPS: ${{ inputs.reuse_source_apps }}
+      REUSE_MAIN: ${{ inputs.reuse_main }}
       REUSE_BUILD_SHA: ${{ inputs.reuse_build_sha }}
     steps:
       - uses: actions/checkout@v4
@@ -149,6 +154,7 @@ jobs:
           extra=()
           if [ "$REUSE_ACCOUNTING" = "true" ]; then extra+=(--reuse-accounting); fi
           if [ "$REUSE_SOURCE_APPS" = "true" ]; then extra+=(--reuse-source-apps); fi
+          if [ "$REUSE_MAIN" = "true" ]; then extra+=(--reuse-main); fi
           python scripts/build_update_release.py --tag "$RELEASE_TAG" "${extra[@]}"
       - name: Stage exact built packages privately for Windows acceptance
         if: inputs.reuse_build_sha == ''

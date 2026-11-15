@@ -282,7 +282,7 @@ class HttpTests(unittest.TestCase):
             result=self.post('/api/auth/firebase-login',{'idToken':'test-token'})
             self.assertEqual(result['user']['role'],'owner')
             self.assertEqual(json.loads(self.client.open(self.base+'/api/state').read())['user']['id'],owner)
-    def test_firebase_worker_imports_both_sources_into_one_ledger(self):
+    def test_firebase_worker_imports_retail_vendor_and_production_into_one_ledger(self):
         import time
         ledger=self.app.ledger()
         try:
@@ -291,21 +291,22 @@ class HttpTests(unittest.TestCase):
         finally:ledger.close()
         retail={**main_backup(),'type':'business-accounting-feed','schemaVersion':1}
         wholesale={**vendor(),'type':'business-accounting-feed','schemaVersion':1}
+        production={'schemaVersion':1,'type':'business-accounting-feed','data':{'sourceId':'production-fixture','productionJournals':[{'id':'opening','date':'2026-10-01','lines':[{'account':'1240','debit':1000,'credit':0},{'account':'3100','debit':0,'credit':1000}]}]}}
         class Connected:
             connection={'uid':'uid-owner'}
             def bearer(self):return 'test-token'
             def publish_service(self,origin):pass
-            def snapshot(self,source,previous):return None if previous else (source,retail if source=='main' else wholesale)
+            def snapshot(self,source,previous):return None if previous else (source,retail if source=='main' else production if source=='production' else wholesale)
         self.app.firebase=Connected()
         thread=threading.Thread(target=self.app.watch_firebase,daemon=True);thread.start()
         deadline=time.monotonic()+4
         while time.monotonic()<deadline:
-            if len(self.app.firebase_status.get('sources',{}))==2:break
+            if len(self.app.firebase_status.get('sources',{}))==3:break
             time.sleep(.03)
         self.app.stop.set();thread.join(timeout=5)
-        self.assertEqual(set(self.app.firebase_status.get('sources',{})),{'main','vendor'})
+        self.assertEqual(set(self.app.firebase_status.get('sources',{})),{'main','vendor','production'})
         ledger=self.app.ledger()
-        try:self.assertEqual({r['source'] for r in ledger.rows()},{'main','vendor'})
+        try:self.assertEqual({r['source'] for r in ledger.rows()},{'main','vendor','production'})
         finally:ledger.close()
     def test_historical_cost_override_survives_future_feed(self):
         p=vendor();del p['data']['inventoryMovements'][0]['unitCost']
