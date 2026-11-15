@@ -3,7 +3,7 @@ name: Retest exact coordinated Windows packages
 on:
   push:
     branches: [codex/coordinated-app-integration]
-    paths: [.github/workflows/coordinated-windows-acceptance.yml]
+    paths: [.github/workflows/coordinated-windows-acceptance.yml, scripts/source_installed.cjs, scripts/employee_time_installed.cjs]
   workflow_dispatch:
     inputs:
       build_sha:
@@ -12,13 +12,14 @@ on:
         required: true
 permissions:
   # GitHub hides unpublished draft downloads from read-only workflow tokens.
+  # Owner approved this temporary test permission; remove it after acceptance.
   # This job retrieves accepted files; it never publishes releases or feeds.
   contents: write
 jobs:
   windows-acceptance:
     runs-on: windows-latest
     env:
-      ACCEPTANCE_BUILD_SHA: ${{ inputs.build_sha || '3c674120de46c8cb1a5990c3730403a3f4e2283c' }}
+      ACCEPTANCE_BUILD_SHA: ${{ inputs.build_sha || '8aa4fdb90b4d050159a9ce5004ee5d164c6f1899' }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
