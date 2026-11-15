@@ -24,9 +24,7 @@ definitions['Waste']={kind:'writeoff',record:'writeoffs',fields:()=>field('batch
 definitions['Invoices'].headers.push('Approval');const invoiceRow=definitions['Invoices'].row;definitions['Invoices'].row=x=>[...invoiceRow(x),x.status==='Matched'?`<button onclick="action('approve_invoice','${x.id}')">Approve payable</button>`:''];
 const units=['lb','oz','g','kg','each','bag','case'].map(x=>({id:x,name:x}));
 let signedInRole = '';
-let centralAccess=false;
-const costPages = ['Reports', 'Supplier pricing', 'Invoices', 'Connections', 'Integration queue', 'Employees'];
-const queueIndex=pages.indexOf('Integration queue');if(queueIndex>=0)pages.splice(queueIndex,1);
+const costPages = ['Reports', 'Supplier pricing', 'Invoices', 'Integration queue', 'Employees'];
 const scheduleQuantity = new Intl.NumberFormat(undefined, {maximumFractionDigits: 6});
 const canManage = () => signedInRole === 'manager';
 const canPurchase = () => canManage() || signedInRole === 'purchasing';
@@ -317,7 +315,6 @@ function editSchedule(entry = {}) {
 render=function(){
  if(!pages.includes(page))page='Overview';
  nav.innerHTML=pages.map(label=>`<button class="${page===label?'active':''}" onclick="go('${label}')">${label}</button>`).join('');
- if(page==='Employees' && centralAccess){view.innerHTML='<h1>Employee access</h1><p>Manage Production roles in Employee/Employer → People → Application access. Use the same Backwoods username and password here.</p>';return}
  if(page==='Employees'){
   view.innerHTML='<h1>Employees</h1><p class="muted">Manager, purchasing and operator access.</p><button class="primary" onclick="employee()">+ Add employee</button><div id="employees" role="status">Loading employees…</div>';
   const target=document.getElementById('employees');
@@ -327,7 +324,11 @@ render=function(){
   return;
  }
  if(page==='Material lots'){view.innerHTML='<h1>Material lots</h1><p class="muted">Source lots and remaining stock. Expired lots cannot be manufactured.</p>';table(state.lots||[],['Source lot','Material','Quantity',...(signedInRole==='manager'?['Unit cost']:[]),'Expiry','Status','Action'],x=>[x.source_lot,name(x.material),x.quantity,...(signedInRole==='manager'?[money(x.cost)]:[]),x.expires,x.status,signedInRole==='manager'?`<button onclick="holdLot('${x.id}')">Inspect / hold</button> <button onclick="editLotCost('${x.id}')">Correct cost</button>`:'']);return}
- if(page==='Connections' || page==='Integration queue'){renderConnections();return}
+ if(page==='Connections' && state.connections?.connected){
+  const connection=state.connections;
+  view.innerHTML='<h1>Connections</h1><section><h2>Backwoods app connections</h2><p>Wholesale Vendor Ordering · '+esc(connection.vendor)+'</p><p>Central Accounting · '+esc(connection.accounting)+'</p><p>Backwoods Employees · Access managed by Employee/Employer</p><p class="muted">'+esc(connection.message)+'</p></section>';return;
+ }
+ if(page==='Integration queue'){view.innerHTML='<h1>Integration queue</h1><p class="muted">'+(state.connections?.connected?'Production records are sent in the background. Vendor tracks transferred inventory; check Accounting for completed imports.':'Pending events for future Backwoods connections. No external records have been sent.')+'</p>';table(rows('outbox'),['Event type','Event ID','Status'],x=>[x.type,x.event_id,x.status]);return}
  if(page==='Finished inventory'){renderFinishedInventory();return}
  if(page==='Production Schedule'){renderSchedule();return}
  if(definitions[page]){
@@ -608,8 +609,6 @@ function showSelling() {
       dailyButton('Reserve stock', () => {openAdvanced('Reservations');fillFields({batch:batch.id});}),
       dailyButton('Cost breakdown', () => showBatchCost(batch.id)));
   });
-  const transferred=rows('batches').filter(b=>b.vendor_transferred);
-  if(transferred.length){const h=document.createElement('h2');h.textContent='Assigned to Vendor';view.append(h);table(transferred,['SKU','Lot','Packages transferred or queued'],b=>[b.sku,b.lot,b.vendor_transferred]);view.insertAdjacentHTML('beforeend','<p>These packages are locked from local reservations. View Connections for the Vendor receipt, then sell them from Vendor.</p>')}
   const heading = document.createElement('h2');
   heading.textContent = 'Reserved orders';
   view.append(heading);
@@ -663,59 +662,7 @@ render = function () {
 };
 
 document.head.insertAdjacentHTML('beforeend', '<style>.workflow-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:24px}nav summary{cursor:pointer;padding:13px 14px}nav details{margin-top:12px}nav details button{padding-left:24px}.bar{gap:10px;flex-wrap:wrap}.inventory-actions button+button{margin-left:6px}@media(max-width:850px){.workflow-cards{grid-template-columns:1fr}nav details{margin-top:0}}</style>');
-async function authenticate(){let me=await(await fetch('/api/me')).json();if(me.user){centralAccess=!!me.user.employeeManaged;signedInRole=me.user.role;if(signedInRole!=='manager'){for(const item of costPages){const i=pages.indexOf(item);if(i>=0)pages.splice(i,1)}}document.querySelector('header span:nth-of-type(2)').textContent=me.user.name+' · '+me.user.role;document.querySelector('header').insertAdjacentHTML('beforeend','<button onclick="logout()">Sign out</button>');await load();return}nav.innerHTML='';view.innerHTML='<h1>Welcome to Backwoods.</h1><section style="max-width:440px"><h2>'+(me.setup?'Create your manager account':me.central?'Sign in with Employee/Employer':'Sign in')+'</h2><form id="login">'+(me.setup?field('name','Your name'):'')+field('username','Username')+field('password','Password (12+ characters)','password')+'<p id="loginerror"></p><button class="primary">Continue</button></form></section>';document.getElementById('login').onsubmit=async e=>{e.preventDefault();try{await post(me.setup?'setup':'login',Object.fromEntries(new FormData(e.target)));await authenticate()}catch(e){document.getElementById('loginerror').textContent=e.message}}}
+async function authenticate(){let me=await(await fetch('/api/me')).json();if(me.user){signedInRole=me.user.role;if(signedInRole!=='manager'){for(const item of costPages){const i=pages.indexOf(item);if(i>=0)pages.splice(i,1)}}document.querySelector('header span:nth-of-type(2)').textContent=me.user.name+' · '+me.user.role;document.querySelector('header').insertAdjacentHTML('beforeend','<button onclick="logout()">Sign out</button>');await load();return}nav.innerHTML='';view.innerHTML='<h1>Welcome to Backwoods.</h1><section style="max-width:440px"><h2>'+(me.setup?'Create your manager account':'Sign in')+'</h2><form id="login">'+(me.setup?field('name','Your name'):'')+field('username','Username')+field('password','Password (12+ characters)','password')+'<p id="loginerror"></p><button class="primary">Continue</button></form></section>';document.getElementById('login').onsubmit=async e=>{e.preventDefault();try{await post(me.setup?'setup':'login',Object.fromEntries(new FormData(e.target)));await authenticate()}catch(e){document.getElementById('loginerror').textContent=e.message}}}
 async function logout(){await post('logout',{});location.reload()}
 window.addEventListener('offline',()=>{document.querySelector('header').insertAdjacentHTML('beforeend','<span>Offline · records require connection</span>')});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');authenticate().catch(e=>{console.error(e);view.innerHTML='<h1>Offline workspace</h1><p>Connect to the production server to sign in and update stock. Local drafts can be restored and reviewed from the header.</p>'});
-
-
-
-
-
-
-
-
-
-async function integrationApi(path,data){
- const response=await fetch('/api/integrations'+path,{method:data===undefined?'GET':'POST',headers:data===undefined?{}:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)});
- const value=await response.json();if(!response.ok)throw Error(value.error||'Connection could not be confirmed');return value;
-}
-async function renderConnections(){
- view.innerHTML='<h1>Connections</h1><p role="status">Checking connections…</p>';
- try{
-  const data=await integrationApi('');
-  view.innerHTML='<h1>Connections</h1><p>Employee/Employer controls access. Production sends its accounting records to Business Accounting and released packages to Vendor.</p><p role="status" id="connection-status">'+esc(data.status.message)+'</p>';
-  if(!data.connected){
-   view.insertAdjacentHTML('beforeend','<section style="max-width:560px"><h2>Connect your existing company</h2><p>Use an active Employee/Employer account with Production manager and owner access.</p><form id="verify-employee">'+field('username','Backwoods username')+field('password','Backwoods password','password')+'<button class="primary">Verify account</button></form><div id="company-connection"></div></section>');
-   document.getElementById('verify-employee').onsubmit=async event=>{
-    event.preventDefault();const form=event.target,button=form.querySelector('button');button.disabled=true;
-    try{
-     const catalog=await integrationApi('/prepare',Object.fromEntries(new FormData(form)));form.reset();centralAccess=true;
-     const target=document.getElementById('company-connection');
-     if(!catalog.accountingOwners.length){target.textContent='Connect this company’s existing owner account in Business Accounting before continuing.';return;}
-     target.innerHTML='<form id="connect-company"><h3>Select the existing Accounting company</h3>'+'<label for="accounting-owner">Accounting owner</label><select id="accounting-owner" name="accountingOwnerUid" required>'+catalog.accountingOwners.map(o=>'<option value="'+esc(o.uid)+'">'+esc(o.name)+'</option>').join('')+'</select>'+'<label><input type="checkbox" name="reviewed" required> I reviewed Production opening balances against existing books and stock. These quantities and payables are not already counted in another source.</label><button class="primary">Connect company</button></form>';
-     document.getElementById('connect-company').onsubmit=async e=>{
-      e.preventDefault();try{const values=Object.fromEntries(new FormData(e.target));values.reviewed=true;await integrationApi('/connect',values);location.reload()}catch(error){document.getElementById('connection-status').textContent=error.message}
-     };
-    }catch(error){document.getElementById('connection-status').textContent=error.message}finally{button.disabled=false}
-   };return;
-  }
-  view.insertAdjacentHTML('beforeend','<section><h2>Automatic synchronization</h2><p>Keep Production signed in as a manager, Employee Owner service online, and Business Accounting open. Transfers retry with their original IDs. Operator work is retained until a manager signs in to send it.</p><button type="button" id="synchronize-now">Sync now</button></section><section><h2>Finished SKU mappings</h2><p>Create the exact finished SKU in Vendor with unit each or bag. Match its package size here once; released stock then transfers automatically.</p><button type="button" id="load-catalog">Match a finished SKU</button><div id="mapping-form"></div></section>');
-  document.getElementById('synchronize-now').onclick=async event=>{event.target.disabled=true;try{const result=await integrationApi('/sync',{});document.getElementById('connection-status').textContent=result.message}catch(error){document.getElementById('connection-status').textContent=error.message}finally{event.target.disabled=false}};
-  document.getElementById('load-catalog').onclick=async()=>{
-   try{
-    const catalog=await integrationApi('/catalog',{}),batches=rows('batches').filter(b=>b.sku&&!b.bulk),skus=[...new Set(batches.map(b=>b.sku))];
-    if(!skus.length){document.getElementById('mapping-form').textContent='Package a lot with a finished SKU first.';return;}
-    document.getElementById('mapping-form').innerHTML='<form id="sku-mapping">'+'<label for="connection-sku">Production SKU</label><select id="connection-sku" name="sku" required>'+skus.map(sku=>'<option value="'+esc(sku)+'">'+esc(sku)+'</option>').join('')+'</select><label for="vendor-product">Vendor product</label><select id="vendor-product" name="productId" required></select><p id="package-size"></p><label><input name="reviewed" type="checkbox" required> These remaining packages are not already included in Vendor’s stock.</label><button class="primary">Save mapping and queue released stock</button></form>';
-    const form=document.getElementById('sku-mapping'),sku=form.elements.sku;
-    const update=()=>{const b=batches.find(b=>b.sku===sku.value);const products=catalog.products.filter(p=>p.sku===sku.value&&['each','bag'].includes(p.unit));form.elements.productId.innerHTML=products.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name+' · '+p.sku)+'</option>').join('');form.dataset.weight=String(b.output/b.packages);document.getElementById('package-size').textContent='Package size: '+scheduleQuantity.format(16*b.output/b.packages)+' oz. '+(products.length?'':'Create this SKU in Vendor first.');};sku.onchange=update;update();
-    form.onsubmit=async event=>{event.preventDefault();try{const values=Object.fromEntries(new FormData(form));values.weightLb=Number(form.dataset.weight);values.reviewed=true;await integrationApi('/map',values);await renderConnections()}catch(error){document.getElementById('connection-status').textContent=error.message}};
-   }catch(error){document.getElementById('connection-status').textContent=error.message}
-  };
-  table(data.mappings,['Production SKU','Vendor product','Package size (oz)'],m=>[m.sku,m.productName||m.sku,16*m.weight]);
-  const h=document.createElement('h2');h.textContent='Finished-stock transfers';view.append(h);
-  table(data.transfers,['SKU','Lot','Packages','Status'],t=>[t.sku,t.lot,t.quantity,t.status==='received'?'Received by Vendor':'Saved for retry']);
- }catch(error){view.innerHTML='<h1>Connections</h1><p role="alert">'+esc(error.message)+'</p>'}
-}
-
-document.head.insertAdjacentHTML('beforeend','<style>input[type=checkbox]{display:inline-block;width:auto;margin:0 8px 0 0;vertical-align:middle}</style>');

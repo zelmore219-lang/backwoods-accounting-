@@ -34,6 +34,11 @@ function Verify-Window {
 Verify-Window
 $update = Join-Path $stage 'update'
 Expand-Archive dist/production/Backwoods-Production-Connected-Update.zip $update
+$parseTokens=$null; $parseErrors=$null
+$null=[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $update 'CONNECT-EXISTING-APPS.ps1'),[ref]$parseTokens,[ref]$parseErrors)
+if ($parseErrors.Count) { throw ('The one-time connection command failed PowerShell parsing: ' + ($parseErrors | Out-String)) }
+$originalScreenHashes=@{}
+foreach ($name in @('index.html','manifest.json','sw.js','icon.svg')) { $originalScreenHashes[$name]=(Get-FileHash (Join-Path $program $name) -Algorithm SHA256).Hash }
 foreach ($pass in @(1,2)) {
  & (Join-Path $update 'UPDATE-PRODUCTION.ps1') -Quiet
  if (!$?) { throw 'Production application update failed.' }
@@ -42,6 +47,7 @@ foreach ($pass in @(1,2)) {
   & $python -E -s -B -c "import sys;sys.path.insert(0,'vendor');import cryptography,finance,connected,sync,server;server.initialize();c=server.connect();assert c.execute('SELECT data FROM records WHERE id=?',('native-preserved-material',)).fetchone();assert sync.run(server.connect)['message'];print('retained Production database and native cryptography verified');c.close()"
   if ($LASTEXITCODE -ne 0) { throw 'The exact updated Python 3.14 application failed verification.' }
  } finally { Pop-Location }
+ foreach ($name in $originalScreenHashes.Keys) { if ((Get-FileHash (Join-Path $program $name) -Algorithm SHA256).Hash -ne $originalScreenHashes[$name]) { throw ('An original Production screen asset changed: ' + $name) } }
  Verify-Window
 }
-@{ originalShellVerified=$true; updateAndReinstallVerified=$true; originalDatabasePreserved=$true; nativeCryptoVerified=$true; sourceCommit=$env:GITHUB_SHA } | ConvertTo-Json | Set-Content dist/production/WINDOWS-ACCEPTANCE.json
+@{ originalShellVerified=$true; updateAndReinstallVerified=$true; originalDatabasePreserved=$true; nativeCryptoVerified=$true; originalScreenAssetsPreserved=$true; oneTimeConnectionCommandParsed=$true; sourceCommit=$env:GITHUB_SHA } | ConvertTo-Json | Set-Content dist/production/WINDOWS-ACCEPTANCE.json

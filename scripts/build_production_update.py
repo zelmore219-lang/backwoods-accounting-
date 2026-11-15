@@ -6,8 +6,9 @@ def build(out,wheels=None):
  out=out.resolve();out.mkdir(parents=True,exist_ok=True)
  with tempfile.TemporaryDirectory(prefix='production-update-') as tmp:
   temp=Path(tmp);stage=temp/'update';app=stage/'application'
-  shutil.copytree(ROOT/'production',app,ignore=shutil.ignore_patterns('__pycache__','*.db','*.db-*','.venv','vendor','UPDATE-*'))
-  for script in (ROOT/'production').glob('UPDATE-*'):shutil.copy2(script,stage/script.name)
+  shutil.copytree(ROOT/'production',app,ignore=shutil.ignore_patterns('__pycache__','*.db','*.db-*','.venv','vendor','UPDATE-*','CONNECT-*'))
+  for script in (ROOT/'production').iterdir():
+   if script.is_file() and script.name.startswith(('UPDATE-','CONNECT-')):shutil.copy2(script,stage/script.name)
   shutil.copy2(ROOT/'docs/PRODUCTION-CONNECTIONS.md',stage/'PRODUCTION-CONNECTIONS.md')
   if wheels is None:
    wheels=temp/'wheels'

@@ -31,4 +31,4 @@ foreach ($file in Get-ChildItem -LiteralPath $source -File) {
 if (Test-Path (Join-Path $target 'vendor')) { Copy-Item -LiteralPath (Join-Path $target 'vendor') -Destination $backup -Recurse }
 # Copy only application files; the database and existing executable/runtime stay in place.
 Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force
-if (!$Quiet) { [System.Windows.Forms.MessageBox]::Show("Production connection update installed. Original application files are in $backup. Open Production and choose Manager tools > Connections to connect your existing company.", 'Backwoods Production') | Out-Null }
+if (!$Quiet) { [System.Windows.Forms.MessageBox]::Show("Production background connection installed. Your existing Production screens and production tasks are retained. Original application files are in $backup. Reopen Production, then run CONNECT-EXISTING-APPS.cmd from this extracted folder for one-time company setup.", 'Backwoods Production') | Out-Null }

@@ -170,7 +170,10 @@ class Handler(BaseHTTPRequestHandler):
    if user['role']!='manager':
     records=[hide_costs(record) for record in records if record['kind'] not in ('prices','invoices','outbox','supplier_credits')]
     lots=hide_costs(lots)
-   self.send(200,{'records':records,'events':events,'lots':lots})
+   result={'records':records,'events':events,'lots':lots}
+   if user['role']=='manager':
+    with connect() as c:result['connections']=finance.connection_status(c,sync.STATUS,records)
+   self.send(200,result)
   elif self.path in ('/','/index.html'):self.send(200,(ROOT/'index.html').read_text(encoding='utf-8'),'text/html; charset=utf-8')
   else:self.send(404,{'error':'Not found'})
  def do_POST(self):
@@ -275,7 +278,6 @@ class Handler(BaseHTTPRequestHandler):
       if kind=='quality':
        batch=operations.get(c,d['id'],'batches')
        if batch.get('vendor_transferred'):raise ValueError('This lot belongs to Vendor. Review its recall or stock adjustment there before changing Production quality.')
-       if d.get('status')=='Released for sale' and not c.execute('SELECT 1 FROM production_mappings WHERE sku=?',(batch.get('sku'),)).fetchone():raise ValueError('Map this finished SKU to Vendor in Connections before releasing it')
       result=apply(c,kind,d,event)
       finance.capture(c,event,kind,before);finance.queue_releases(c,event)
      else:result=apply(c,kind,d,event)

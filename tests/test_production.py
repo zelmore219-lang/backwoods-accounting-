@@ -99,6 +99,37 @@ class ProductionTests(unittest.TestCase):
  def test_unsigned_sync_worker_retains_status_without_crashing(self):
   import sync
   with patch.object(sync,'TOKEN',None):self.assertIsInstance(sync.run(production.connect),dict)
+ def test_completed_packaged_release_matches_exact_vendor_sku_in_background(self):
+  with self.c:finance.baseline(self.c)
+  material=self.receive();batch=self.make(material)
+  self.act('quality',{'id':batch,'status':'Approved','notes':'Inspected'})
+  self.act('quality',{'id':batch,'status':'Released for sale','notes':'Ready for sale'})
+  self.assertEqual(self.c.execute('SELECT count(*) FROM integration_transfers').fetchone()[0],0)
+  with self.c:finance.map_new_releases(self.c,[{'id':'exact','sku':'PEA-8','unit':'each','name':'Packaged peanuts'}])
+  payload=json.loads(self.c.execute('SELECT payload FROM integration_transfers').fetchone()[0])
+  self.assertEqual((payload['quantity'],payload['lot'],payload['productId']),(16,'FIN-1','exact'))
+  self.assertEqual(operations.available_finished_units(operations.get(self.c,batch)),0)
+  with self.c:finance.map_new_releases(self.c,[{'id':'exact','sku':'PEA-8','unit':'each'}])
+  self.assertEqual(self.c.execute('SELECT count(*) FROM integration_transfers').fetchone()[0],1)
+ def test_existing_opening_stock_and_ambiguous_skus_need_review_before_transfer(self):
+  material=self.receive();batch=self.make(material)
+  self.act('quality',{'id':batch,'status':'Approved','notes':'Inspected'})
+  self.act('quality',{'id':batch,'status':'Released for sale','notes':'Ready for sale'})
+  with self.c:
+   finance.baseline(self.c)
+   finance.map_new_releases(self.c,[{'id':'existing','sku':'PEA-8','unit':'each'}])
+  self.assertEqual(self.c.execute('SELECT count(*) FROM integration_transfers').fetchone()[0],0)
+  self.assertEqual(operations.available_finished_units(operations.get(self.c,batch)),16)
+ def test_wrong_package_mapping_does_not_undo_normal_release_or_transfer_wrong_count(self):
+  with self.c:finance.baseline(self.c)
+  material=self.receive();batch=self.make(material)
+  with self.c:self.c.execute('INSERT INTO production_mappings VALUES(?,?,?)',('PEA-8','wrong-size',1))
+  self.act('quality',{'id':batch,'status':'Approved','notes':'Inspected'})
+  self.act('quality',{'id':batch,'status':'Released for sale','notes':'Ready for sale'})
+  self.assertEqual(operations.get(self.c,batch)['status'],'Released for sale')
+  self.assertEqual(self.c.execute('SELECT count(*) FROM integration_transfers').fetchone()[0],0)
+  status=finance.connection_status(self.c,{})
+  self.assertEqual(status,{'connected':False})
  def test_employee_role_company_revocation_and_activation_are_checked_each_request(self):
   claims={'aud':connected.PROJECT,'iss':'https://securetoken.google.com/'+connected.PROJECT,'auth_time':200}
   import base64,time

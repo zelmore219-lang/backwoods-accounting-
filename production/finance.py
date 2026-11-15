@@ -54,6 +54,7 @@ def baseline(c):
  if setting(c,'baseline'):return
  journal(c,'opening:'+setting(c,'source_id'),'Reviewed Production opening balances',positions(c),'3100')
  set_setting(c,'baseline','1');set_setting(c,'baseline_date',date.today().isoformat())
+ set_setting(c,'baseline_batches',json.dumps([r[0] for r in c.execute("SELECT id FROM records WHERE kind='batches'")]))
 
 def capture(c,event,kind,before):
  after=positions(c);changes={k:after[k]-before[k] for k in after}
@@ -73,8 +74,9 @@ def queue_releases(c,event):
   if q<=0:continue
   mapping=c.execute('SELECT * FROM production_mappings WHERE sku=?',(b.get('sku'),)).fetchone()
   if not mapping:continue
-  if abs(float(mapping['weight'])-float(b['output'])/float(b['packages']))>1e-8:raise ValueError('The package weight differs from this SKU mapping')
-  if int(q)!=q:raise ValueError('Only whole finished packages can transfer to Vendor')
+  if abs(float(mapping['weight'])-float(b['output'])/float(b['packages']))>1e-8 or int(q)!=q:
+   # A connector mapping issue must never roll back a completed Production task.
+   continue
   transfer_id=str(uuid.uuid5(uuid.NAMESPACE_URL,setting(c,'source_id')+':'+row['id']+':'+event))
   payload={'id':transfer_id,'sourceId':setting(c,'source_id'),'batchId':row['id'],'sku':b['sku'],'lot':b['lot'],'bestBy':b.get('best_by',''),'productId':mapping['product_id'],'quantity':int(q),'capacity':int(q+float(b.get('reserved',0))+float(b.get('vendor_transferred',0))),'unitCost':str(Decimal(str(b['total']))/Decimal(str(b['packages']))),'weightLb':str(mapping['weight']),'createdAt':datetime.now(timezone.utc).isoformat()}
   c.execute('INSERT INTO integration_transfers VALUES(?,?,?,NULL)',(transfer_id,json.dumps(payload),'pending'))
@@ -83,6 +85,44 @@ def queue_releases(c,event):
   # Warehouse ownership changes; a transfer is neither a purchase nor a sale.
   amount=cents(Decimal(str(b['total']))*Decimal(str(q))/Decimal(str(b['packages'])))
   journal(c,'transfer:'+transfer_id,'Finished lot '+b['lot']+' transferred to Vendor',{'1200':amount,'1260':-amount})
+
+def map_new_releases(c,products):
+ """Exact new SKUs connect automatically; old stock still needs opening review."""
+ baseline_ids=setting(c,'baseline_batches')
+ if baseline_ids is None:return
+ existing=set(json.loads(baseline_ids))
+ batches=[(r['id'],json.loads(r['data'])) for r in c.execute("SELECT id,data FROM records WHERE kind='batches'")]
+ for ident,b in batches:
+  if ident in existing or b.get('bulk') or b.get('status')!='Released for sale' or not b.get('packages'):continue
+  if c.execute('SELECT 1 FROM production_mappings WHERE sku=?',(b.get('sku'),)).fetchone():continue
+  weights={round(float(other['output'])/float(other['packages']),8) for _,other in batches if other.get('sku')==b.get('sku') and not other.get('bulk') and other.get('packages')}
+  matches=[p for p in products if p.get('sku')==b.get('sku') and p.get('unit') in {'each','bag'}]
+  if len(weights)!=1 or len(matches)!=1:continue
+  product=matches[0]
+  if product.get('productionSourceId') not in (None,'',setting(c,'source_id')):continue
+  c.execute('INSERT INTO production_mappings VALUES(?,?,?)',(b['sku'],product['id'],float(b['output'])/float(b['packages'])))
+  set_setting(c,'product_name:'+product['id'],product.get('name') or b['sku'])
+ queue_releases(c,'background-release')
+
+def connection_status(c,status,records=None):
+ connected=bool(setting(c,'company'))
+ if not connected:return {'connected':False}
+ transfers=[dict(r) for r in c.execute('SELECT id,payload,status FROM integration_transfers')]
+ pending=sum(r['status']!='received' for r in transfers)
+ unmapped=0
+ from operations import available_finished_units
+ for r in c.execute("SELECT data FROM records WHERE kind='batches'"):
+  b=json.loads(r[0])
+  if b.get('status')=='Released for sale' and not b.get('bulk') and available_finished_units(b)>0:unmapped+=1
+ published=int(setting(c,'published_event_count','0'))
+ event_numbers={r['id']:r['rowid'] for r in c.execute('SELECT rowid,id FROM events')}
+ for r in records or []:
+  if r.get('kind')!='outbox':continue
+  if r.get('type')=='inventory.released':
+   receipts=[t for t in transfers if json.loads(t['payload']).get('batchId')==r.get('batch')]
+   r['status']='Received by Vendor' if receipts and all(t['status']=='received' for t in receipts) else 'Saved for Vendor retry' if receipts else 'Waiting for exact Vendor SKU/package mapping'
+  else:r['status']='Sent to Accounting; check import status' if event_numbers.get(r.get('event_id'),published+1)<=published else 'Saved for Accounting retry'
+ return {'connected':True,'vendor':f'{pending} transfer(s) saved for retry' if pending else f'{unmapped} released lot(s) awaiting exact SKU/package mapping' if unmapped else 'Transfers received; inventory tracked in Vendor','accounting':'Source sent; check Business Accounting import status' if setting(c,'published_hash') else 'Saved for background send','message':status.get('message','Background connection is ready.')}
 
 def packet(c):
  journals=[{'id':r['id'],'date':r['date'],'memo':r['memo'],'lines':json.loads(r['lines'])} for r in c.execute('SELECT * FROM production_journals ORDER BY rowid')]
