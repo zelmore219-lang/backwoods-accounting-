@@ -4,7 +4,7 @@ $stage = Join-Path $env:RUNNER_TEMP 'production-connection-native'
 $app = Join-Path $env:LOCALAPPDATA 'Backwoods Production/Application'
 $data = Join-Path $env:LOCALAPPDATA 'Backwoods Production/Data'
 if (Test-Path (Join-Path $data 'backwoods.db')) { throw 'A disposable Windows runner is required; existing Production records were found.' }
-New-Item -ItemType Directory -Force $app, $data | Out-Null
+New-Item -ItemType Directory -Force $stage, $app, $data | Out-Null
 Copy-Item tests/fixtures/production-desktop/*.exe $app
 Copy-Item tests/fixtures/production-desktop/*.dll $app
 Expand-Archive tests/fixtures/production-desktop/original-application.zip (Join-Path $app 'app')
