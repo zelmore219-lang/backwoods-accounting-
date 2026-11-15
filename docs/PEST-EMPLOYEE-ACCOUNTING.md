@@ -1,6 +1,6 @@
 # Connect Pest Control to Employee and Business Accounting
 
-Windows release set: Pest Control **0.10.0**, Employee Employer **0.4.8**, Business Accounting **1.0.11**. Use your existing legal company and a separate **Pest Control** department. Production is deferred.
+Windows release set: Pest Control **0.10.0**, Employee Employer **0.4.9**, Business Accounting **1.0.11**. Use your existing legal company and a separate **Pest Control** department. Production is deferred.
 
 ## 1. Install the Windows updates — owner
 
@@ -9,7 +9,7 @@ Save work and make your normal backups. Let pending Pest work synchronize first.
 Download and run these installers under the same Windows account that holds your existing data:
 
 * [Pest Control Setup 0.10.0](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/download/pest-0.10.0/Backwoods-Pest-Control-Setup-0.10.0.exe)
-* [Employee Setup 0.4.8](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/download/employees-0.4.8/Backwoods-Employees-Setup-0.4.8.exe)
+* [Employee Setup 0.4.9](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/download/employees-0.4.9/Backwoods-Employees-Setup-0.4.9.exe)
 * [Business Accounting 1.0.11 downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/apps-pest-integration-2026-11-15)
 
 Install over the existing apps. Open Pest from the installed Start-menu shortcut. **Help → About Backwoods** should show **0.10.0**. Its new **App updates → Check for updates…** menu opens the update wizard. An old portable EXE will still open the old version; use the installed shortcut. Keep old devices/data until pending work has synchronized.
