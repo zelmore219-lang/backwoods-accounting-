@@ -66,7 +66,7 @@ def build(tag,out,reuse_accounting=False,reuse_source_apps=False):
         version=json.loads((project/'package.json').read_text())['version']
         win=ROOT/'dist/windows' if kind=='accounting' else ROOT/'dist/source-app-updates'/kind
         source=win/f'{prefix}-Setup-{version}.exe'
-        apk=ROOT/'android-apps'/kind/'android/app/build/outputs/apk/debug/app-debug.apk'
+        apk=ROOT/'android-apps'/kind/'android/app/build/outputs/apk/release/app-release.apk'
         selected=retained if kind=='accounting' else retained_app(kind) if reuse_source_apps else None
         if selected:
             if any(selected[0][platform]['version']!=version for platform in ['windows','android']):raise ValueError('Keep the existing '+kind+' version when reusing its packages')
@@ -75,6 +75,7 @@ def build(tag,out,reuse_accounting=False,reuse_source_apps=False):
         certificate=re.search(r'Signer #1 certificate SHA-256 digest: ([a-f0-9]{64})',cert).group(1)
         if certificate!=expected:raise ValueError(f'{kind}: Android signing key changed; refusing to publish an incompatible update')
         badging=subprocess.check_output([str(aapt),'dump','badging',str(apk)],text=True)
+        if 'application-debuggable' in badging:raise ValueError(kind+': refusing to publish a debuggable Android package')
         identity=re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'",badging)
         if not identity or identity[1]!=package or identity[3]!=version:raise ValueError(f'{kind}: packaged app identity/version mismatch')
         min_sdk=int(re.search(r"sdkVersion:'(\d+)'",badging)[1])
@@ -82,7 +83,7 @@ def build(tag,out,reuse_accounting=False,reuse_source_apps=False):
         abis=re.findall(r"'([^']+)'",native[1]) if native else ['arm64-v8a','armeabi-v7a','x86','x86_64']
         if source.read_bytes()[:2]!=b'MZ':raise ValueError('Not a Windows installer')
         win_out=out/source.name;shutil.copy2(source,win_out)
-        apk_name=('Backwoods-Vendor-Connected' if kind=='vendor' else prefix)+f'-{version}-test.apk'
+        apk_name=('Backwoods-Vendor-Connected' if kind=='vendor' else prefix)+f'-{version}.apk'
         apk_out=out/apk_name;shutil.copy2(apk,apk_out)
         def artifact(p):
             digest=sha(p);checks.append(digest+'  '+p.name);return {'version':version,'url':f'https://github.com/{REPO}/releases/download/{tag}/{p.name}','sha256':digest,'size':p.stat().st_size}

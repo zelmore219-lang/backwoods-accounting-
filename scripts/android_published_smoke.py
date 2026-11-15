@@ -3,6 +3,7 @@ import hashlib,json,re,shutil,subprocess,sys,time,urllib.request,xml.etree.Eleme
 from pathlib import Path
 
 APP=sys.argv[1]
+CANDIDATE_MANIFEST=Path(sys.argv[2]) if len(sys.argv)>2 else None
 assert APP in {'main','vendor','accounting','employees','driver'}
 FEEDS={
  'employees':'https://github.com/zelmore219-lang/backwoods-brew-releases/releases/download/employee-updates/backwoods-employees-updates.json',
@@ -13,6 +14,8 @@ ROOT=Path('test-results/android-published')/APP;ROOT.mkdir(parents=True,exist_ok
 
 def adb(*args,check=True):
  return subprocess.run(['adb',*args],capture_output=True,text=True,check=check,timeout=120).stdout
+
+assert adb('shell','getprop','ro.kernel.qemu').strip()=='1','Refusing to modify a physical or company Android device'
 
 def snapshot(stage):
  adb('shell','uiautomator','dump','/sdcard/backwoods-audit.xml')
@@ -70,16 +73,39 @@ assert f"name='{PACKAGE}'" in badging and f"versionName='{INFO['version']}'" in 
 assert f"versionCode='{INFO['versionCode']}'" in badging
 subprocess.run(['adb','install','-r',str(artifact)],check=True,timeout=120)
 open_app('installed')
+baseline_version=INFO['version']
+candidate=artifact
+if CANDIDATE_MANIFEST:
+ staged=json.loads(CANDIDATE_MANIFEST.read_text())['apps'][APP]['android']
+ assert staged['packageName']==PACKAGE and staged['certificateSha256']==INFO['certificateSha256']
+ candidate=CANDIDATE_MANIFEST.parent/staged['url'].rsplit('/',1)[1]
+ assert candidate.stat().st_size==staged['size'] and hashlib.file_digest(candidate.open('rb'),'sha256').hexdigest()==staged['sha256']
+ badge=subprocess.check_output([str(sdk/'aapt'),'dump','badging',str(candidate)],text=True)
+ assert 'application-debuggable' not in badge,'A production update must not be debuggable'
+ assert f"name='{PACKAGE}'" in badge and f"versionCode='{staged['versionCode']}'" in badge and f"versionName='{staged['version']}'" in badge
+ subprocess.run(['adb','root'],check=True);adb('wait-for-device');assert adb('shell','id','-u').strip()=='0'
+ uid=re.search(r'userId=(\d+)',adb('shell','dumpsys','package',PACKAGE))[1]
+ marker='/data/user/0/'+PACKAGE+'/files/backwoods-audit-canary'
+ adb('shell','mkdir','-p','/data/user/0/'+PACKAGE+'/files')
+ subprocess.run(['adb','shell','tee',marker],input='disposable-record-preservation',capture_output=True,text=True,check=True)
+ adb('shell','chown',uid+':'+uid,'/data/user/0/'+PACKAGE+'/files',marker)
+ adb('shell','restorecon','-RF','/data/user/0/'+PACKAGE+'/files')
+ subprocess.run(['adb','install','-r',str(candidate)],check=True,timeout=120);open_app('upgraded-release')
+ assert 'versionName='+staged['version'] in adb('shell','dumpsys','package',PACKAGE)
+ assert re.search(r'userId=(\d+)',adb('shell','dumpsys','package',PACKAGE))[1]==uid
+ assert adb('shell','cat',marker).strip()=='disposable-record-preservation'
+ INFO=staged
 canary=adb('shell','run-as',PACKAGE,'mkdir','-p','files',check=False)
 private_read=subprocess.run(['adb','shell','run-as',PACKAGE,'tee','files/backwoods-audit-canary'],input='disposable-record-preservation',capture_output=True,text=True,timeout=20)
 has_canary=private_read.returncode==0
 adb('shell','settings','put','system','accelerometer_rotation','0')
 adb('shell','settings','put','system','user_rotation','1');time.sleep(2);snapshot('landscape')
 adb('shell','settings','put','system','user_rotation','0')
-subprocess.run(['adb','install','-r',str(artifact)],check=True,timeout=120)
+subprocess.run(['adb','install','-r',str(candidate)],check=True,timeout=120)
 open_app('reinstalled')
 if has_canary:assert adb('shell','run-as',PACKAGE,'cat','files/backwoods-audit-canary').strip()=='disposable-record-preservation'
-result={'app':APP,'version':INFO['version'],'packageName':PACKAGE,'sha256':digest.hexdigest(),'certificateSha256':fingerprint,'publicBytesVerified':True,'installed':True,'signInRendered':True,'reinstalled':True,'privateCanaryPreserved':True if has_canary else 'release sandbox: not accessible','nativeCrash':False,'physicalDevice':False,'authenticatedWorkflow':'verified separately with isolated source/emulator suites; not implied by launch test'}
+if CANDIDATE_MANIFEST:assert adb('shell','cat',marker).strip()=='disposable-record-preservation'
+result={'app':APP,'version':INFO['version'],'packageName':PACKAGE,'sha256':INFO['sha256'],'certificateSha256':fingerprint,'publicBytesVerified':not bool(CANDIDATE_MANIFEST),'acceptedStagedBytesVerified':bool(CANDIDATE_MANIFEST),'upgradedFrom':baseline_version if CANDIDATE_MANIFEST else None,'installed':True,'signInRendered':True,'reinstalled':True,'privateCanaryPreserved':True if has_canary or CANDIDATE_MANIFEST else 'release sandbox: not accessible','nativeCrash':False,'physicalDevice':False,'authenticatedWorkflow':'verified separately with isolated source/emulator suites; not implied by launch test'}
 (ROOT/'result.json').write_text(json.dumps(result,indent=2)+'\n')
 artifact.unlink()
 print('ANDROID_PUBLISHED_ACCEPTANCE '+json.dumps(result),flush=True)

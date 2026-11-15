@@ -21,7 +21,7 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
   if(kind==='main'&&sessions.mainPath===sessions.defaultPath)assert(sessions.same,'One physical profile must use one Electron Session');
   mark('Waiting for '+kind+' packaged page');
   await page.waitForURL('file:///**/index.html',{timeout:60000});
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),kind==='main'?'8.2.10':'4.1.9');
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),JSON.parse(fs.readFileSync(path.join(__dirname,'../source-app-updates',kind,'package.json'))).version);
   if(kind==='main'){
    await page.getByPlaceholder('Username',{exact:true}).waitFor();
    const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/main-native.json')));

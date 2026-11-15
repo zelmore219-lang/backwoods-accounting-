@@ -133,9 +133,9 @@ jobs:
       - name: Build Android APKs and native updater tests
         if: inputs.reuse_build_sha == ''
         run: |
-          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
-          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
-          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleDebug)
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
+          (cd android-apps/main/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
+          (cd android-apps/vendor/android && bash gradlew --no-daemon --max-workers=2 testDebugUnitTest assembleRelease)
       - name: Build Windows installers
         if: inputs.reuse_build_sha == ''
         run: |
@@ -223,6 +223,45 @@ jobs:
             }
           }
 
+  android-release-upgrade:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [main, vendor, accounting]
+    env:
+      ACCEPTANCE_BUILD_SHA: ${{ needs.build.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Retrieve exact signed release packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/update-release
+          gh release download "coordinated-build-$ACCEPTANCE_BUILD_SHA" --repo "$GITHUB_REPOSITORY" --dir dist/update-release --pattern '*.apk' --pattern 'backwoods-updates.json'
+          sdkmanager 'build-tools;35.0.0'
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: python scripts/android_published_smoke.py ${{ matrix.app }} dist/update-release/backwoods-updates.json
+
   android-accounting-acceptance:
     needs: build
     runs-on: ubuntu-24.04
@@ -278,7 +317,7 @@ jobs:
             python -c "from pathlib import Path;s=Path('dist/accounting-native-payroll.log').read_text();assert 'OK (1 test)' in s and 'FAILURES' not in s,s"
 
   publish:
-    needs: [build, windows-acceptance, android-accounting-acceptance]
+    needs: [build, windows-acceptance, android-release-upgrade, android-accounting-acceptance]
     if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     steps:
