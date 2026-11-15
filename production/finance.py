@@ -89,5 +89,6 @@ def packet(c):
  records=[{'id':r['id'],'kind':r['kind'],'data':json.loads(r['data'])} for r in c.execute('SELECT * FROM records WHERE kind NOT IN (\'outbox\') ORDER BY rowid')]
  records.extend({'id':'lot:'+r['id'],'kind':'material-lot','data':dict(r)} for r in c.execute('SELECT * FROM lots ORDER BY rowid'))
  records.extend({'id':'event:'+r['id'],'kind':'production-event','data':{'operation':r['kind'],'date':r['created'][:10],'created':r['created'],'data':json.loads(r['data'])}} for r in c.execute('SELECT * FROM events ORDER BY rowid'))
+ records.extend({'id':'transfer:'+r['id'],'kind':'vendor-transfer','data':{**json.loads(r['payload']),'status':r['status'],'receipt':json.loads(r['receipt']) if r['receipt'] else None}} for r in c.execute('SELECT * FROM integration_transfers ORDER BY rowid'))
  # No personnel table, login/session data or secrets are exported.
  return {'schemaVersion':1,'type':'business-accounting-feed','app':'Backwoods Production','data':{'sourceId':setting(c,'source_id'),'baselineDate':setting(c,'baseline_date'),'productionJournals':journals,'productionRecords':records}}

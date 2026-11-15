@@ -122,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
    actor=self.user()
    if not actor or actor['role']!='manager':return self.send(403,{'error':'Manager access required'})
    with connect() as c:
-    result={'connected':bool(finance.setting(c,'company')),'company':finance.setting(c,'company'),'sourceId':finance.setting(c,'source_id'),'mappings':[dict(r) for r in c.execute('SELECT * FROM production_mappings')],'transfers':[{'id':r['id'],'status':r['status'],**json.loads(r['payload'])} for r in c.execute('SELECT * FROM integration_transfers ORDER BY rowid DESC')],'status':sync.STATUS}
+    result={'connected':bool(finance.setting(c,'company')),'company':finance.setting(c,'company'),'sourceId':finance.setting(c,'source_id'),'mappings':[{**dict(r),'productName':finance.setting(c,'product_name:'+r['product_id'],r['sku'])} for r in c.execute('SELECT * FROM production_mappings')],'transfers':[{'id':r['id'],'status':r['status'],**json.loads(r['payload'])} for r in c.execute('SELECT * FROM integration_transfers ORDER BY rowid DESC')],'status':sync.STATUS}
    return self.send(200,result)
   if self.path=='/api/users':
    user=self.user()
@@ -243,6 +243,7 @@ class Handler(BaseHTTPRequestHandler):
       old=c.execute('SELECT * FROM production_mappings WHERE sku=?',(d['sku'],)).fetchone()
       if old and (old['product_id']!=product['id'] or abs(old['weight']-weight)>1e-8):raise ValueError('Existing SKU mappings cannot be reassigned; use a distinct SKU for a different package')
       c.execute('INSERT OR IGNORE INTO production_mappings VALUES(?,?,?)',(d['sku'],product['id'],weight))
+      finance.set_setting(c,'product_name:'+product['id'],product.get('name') or d['sku'])
       finance.queue_releases(c,str(uuid.uuid4()))
      sync.TOKEN=token
      return self.send(200,{'ok':True})

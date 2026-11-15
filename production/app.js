@@ -712,7 +712,7 @@ async function renderConnections(){
     form.onsubmit=async event=>{event.preventDefault();try{const values=Object.fromEntries(new FormData(form));values.weightLb=Number(form.dataset.weight);values.reviewed=true;await integrationApi('/map',values);await renderConnections()}catch(error){document.getElementById('connection-status').textContent=error.message}};
    }catch(error){document.getElementById('connection-status').textContent=error.message}
   };
-  table(data.mappings,['Production SKU','Vendor product','Package size (oz)'],m=>[m.sku,m.product_id,16*m.weight]);
+  table(data.mappings,['Production SKU','Vendor product','Package size (oz)'],m=>[m.sku,m.productName||m.sku,16*m.weight]);
   const h=document.createElement('h2');h.textContent='Finished-stock transfers';view.append(h);
   table(data.transfers,['SKU','Lot','Packages','Status'],t=>[t.sku,t.lot,t.quantity,t.status==='received'?'Received by Vendor':'Saved for retry']);
  }catch(error){view.innerHTML='<h1>Connections</h1><p role="alert">'+esc(error.message)+'</p>'}
