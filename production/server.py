@@ -1,5 +1,5 @@
 import sqlite3,json,uuid,os,hashlib,secrets,time,hmac,threading,argparse
-import operations,finance,connected,sync
+import operations,finance,connected,sync,recipe_import
 from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
 from pathlib import Path
 ROOT=Path(__file__).parent
@@ -43,6 +43,8 @@ def apply(c,kind,d,event):
    quantity=quantity,cost=total/quantity,freight=freight,status='Approved',actor=d.get('actor')))
   apply(c,'receive',dict(id=purchase,quantity=quantity,lot=d['lot'],expires=d.get('expires'),
    location=d.get('location'),actor=d.get('actor')),str(uuid.uuid4()))
+ elif kind=='import_recipes':
+  result=recipe_import.apply(c,d)
  elif operations.apply(c,kind,d,event):pass
  elif kind in ('suppliers','materials','recipes','purchases'):
   if kind=='recipes':raise ValueError('Use version-controlled recipe_versions')
@@ -100,7 +102,7 @@ def apply(c,kind,d,event):
   if target=='Released for sale':operations.save(c,'outbox',dict(type='inventory.released',event_id=event,batch=d['id'],status='Pending connection'))
  else:raise ValueError('Unknown operation')
  c.execute('insert into events values(?,?,?,datetime("now"))',(event,kind,json.dumps(d)))
- return {'ok':True}
+ return result if kind=='import_recipes' else {'ok':True}
 class Handler(BaseHTTPRequestHandler):
  attempts={}
  attempt_lock=threading.Lock()
@@ -179,7 +181,8 @@ class Handler(BaseHTTPRequestHandler):
  def do_POST(self):
   try:
    length=int(self.headers.get('Content-Length',0))
-   if length<=0 or length>100000:raise ValueError('Invalid request size')
+   maximum=8*1024*1024 if self.path in {'/api/import_recipes','/api/recipe-import/preview'} else 100000
+   if length<=0 or length>maximum:raise ValueError('Invalid request size')
    origin=os.environ.get('BACKWOODS_ORIGIN','http://'+self.headers.get('Host',''))
    if self.headers.get('Origin') and self.headers['Origin']!=origin:raise ValueError('Invalid request origin')
    d=json.loads(self.rfile.read(length))
@@ -260,7 +263,11 @@ class Handler(BaseHTTPRequestHandler):
     salt=secrets.token_hex(16);hashed=hashlib.pbkdf2_hmac('sha256',d['password'].encode(),salt.encode(),300000).hex()
     with connect() as c:c.execute('insert into users values(?,?,?,?,?,?)',(str(uuid.uuid4()),d['name'],d['username'],salt,hashed,d['role']))
     return self.send(200,{'ok':True})
-   manager={'quality','lot_hold','approve_recipe','approve_purchase','approve_invoice','adjust','supplier_credits','supplier_returns','writeoff','save_schedule','package_inventory','correct_lot_cost','edit_purchase','edit_batch'}
+   if self.path=='/api/recipe-import/preview':
+    if actor['role']!='manager':return self.send(403,{'error':'Manager access required'})
+    parsed=recipe_import.preview(d.get('documents'))
+    return self.send(200,{'categories':parsed['categories'],'recipes':len(parsed['recipes']),'documents':len(parsed['documents'])})
+   manager={'quality','lot_hold','approve_recipe','approve_purchase','approve_invoice','adjust','supplier_credits','supplier_returns','writeoff','save_schedule','package_inventory','correct_lot_cost','edit_purchase','edit_batch','import_recipes'}
    purchasing={'suppliers','materials','purchases','prices','receive','invoices'}
    kind=self.path.removeprefix('/api/')
    operator={'manufacture','start_batch','complete_batch','batch_stage','sanitation','inspections'}

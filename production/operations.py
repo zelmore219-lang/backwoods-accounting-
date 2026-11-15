@@ -356,17 +356,20 @@ def apply(c,k,d,event):
  elif k=='recipe_versions':
   if not d.get('name') or not d.get('version'):raise ValueError('Name and version required')
   recipe_id=d.get('id')
-  if recipe_id and get(c,recipe_id,'recipes')['status']!='Draft':
+  prior=get(c,recipe_id,'recipes') if recipe_id else {}
+  if recipe_id and prior['status']!='Draft':
    raise ValueError('Only draft recipes can be edited')
   lines=d['lines']
   for row in c.execute('select id,data from records where kind="recipes"'):
    if row['id']==recipe_id:continue
-   prior=json.loads(row['data'])
-   if prior.get('name')==d['name'] and prior.get('version')==d['version']:raise ValueError('Recipe version already exists; increment the version')
+   other=json.loads(row['data'])
+   if other.get('name')==d['name'] and other.get('version')==d['version']:raise ValueError('Recipe version already exists; increment the version')
   if not isinstance(lines,list) or not lines:raise ValueError('At least one BOM line required')
   for line in lines:
    m=get(c,line['material'],'materials');convert(number(line['quantity'],True),line['unit'],m.get('unit','lb'))
   number(d['batch_size'],True);number(d['expected_yield'],True);d['status']='Draft'
+  if prior.get('imported_recipe'):
+   d={**prior,**d,'formula_reviewed':d.get('confirm_imported_formula') is True}
   if recipe_id:update(c,recipe_id,{key:value for key,value in d.items() if key!='id'})
   else:save(c,'recipes',d)
  elif k=='edit_purchase':
@@ -386,6 +389,11 @@ def apply(c,k,d,event):
  elif k=='approve_recipe':
   r=get(c,d['id'],'recipes')
   if r.get('status')!='Draft':raise ValueError('Only draft versions may be approved')
+  if r.get('imported_recipe') and r.get('formula_reviewed') is not True:raise ValueError('Review and save the imported formula, base recipes, quantities and finished yield before approval')
+  number(r.get('batch_size'),True);number(r.get('expected_yield'),True)
+  if not r.get('lines'):raise ValueError('At least one confirmed ingredient is required')
+  for line in r['lines']:
+   m=get(c,line['material'],'materials');convert(number(line['quantity'],True),line['unit'],m.get('unit','lb'))
   r['standard_material_cost']=sum(convert(line['quantity'],line['unit'],get(c,line['material'],'materials').get('unit','lb'))*number(get(c,line['material'],'materials')['cost']) for line in r['lines']);r['status']='Approved';update(c,d['id'],r)
  elif k=='manufacture':
   r=get(c,d['recipe'],'recipes')

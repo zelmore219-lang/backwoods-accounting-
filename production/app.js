@@ -482,7 +482,7 @@ function addLine(){document.getElementById('bomlines').insertAdjacentHTML('befor
 function manufacture(){operation='manufacture';pending=crypto.randomUUID();formtitle.textContent='Manufacture batch';fields.innerHTML=field('recipe','Approved recipe','text',rows('recipes').filter(x=>x.status==='Approved'))+field('lot','Finished lot')+field('sku','Finished SKU')+field('equipment','Roaster / equipment')+field('profile','Roast profile, temperature, duration and seasoning observations')+field('date','Production date','date')+field('best_by','Best by','date')+field('scale','Batch multiplier','number')+field('output','Actual usable output (lb)','number')+finishedPackageFields('Saleable packages')+['labor','energy','overhead','other'].map(k=>field(k,k+' cost ($)','number')).join('');error.textContent='';modal.showModal()}
 async function action(kind,id){try{await post(kind,{id,event_id:crypto.randomUUID()});await load()}catch(e){alert(e.message)}}
 async function post(kind,data){let r=await fetch('/api/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});let j=await r.json();if(!r.ok)throw Error(j.error);return j}
-form.onsubmit=async e=>{e.preventDefault();let d=Object.fromEntries(new FormData(form));if('bulk' in d)d.bulk=d.bulk==='true';if(operation==='package_inventory' && 'weight_oz' in d){d.weight_per_package=Number(d.weight_oz)/16;delete d.weight_oz}if(operation==='recipe_versions'){d.lines=[...document.querySelectorAll('.bomline')].map(el=>Object.fromEntries([...el.querySelectorAll('input,select')].map(x=>[x.name,x.value])));delete d.material;delete d.quantity;delete d.unit}d.event_id=pending;try{await post(operation,d);modal.close();await load()}catch(e){error.textContent=e.message}};
+form.onsubmit=async e=>{e.preventDefault();let d=Object.fromEntries(new FormData(form));if('bulk' in d)d.bulk=d.bulk==='true';if(operation==='package_inventory' && 'weight_oz' in d){d.weight_per_package=Number(d.weight_oz)/16;delete d.weight_oz}if(operation==='recipe_versions'){d.lines=[...document.querySelectorAll('.bomline')].map(el=>Object.fromEntries([...el.querySelectorAll('input,select')].map(x=>[x.name,x.value])));if('confirm_imported_formula' in d)d.confirm_imported_formula=d.confirm_imported_formula==='on';delete d.material;delete d.quantity;delete d.unit}d.event_id=pending;try{await post(operation,d);modal.close();await load()}catch(e){error.textContent=e.message}};
 
 const renderDetailPage = render;
 const dailyPages = ['Overview', 'Receive supplies', 'Make a batch', 'Package & release', 'Ready to sell'];
@@ -684,3 +684,92 @@ async function refreshBackgroundRecords(){
 }
 setInterval(refreshBackgroundRecords,15000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshBackgroundRecords()});
+
+// Categorized recipes extend the existing Recipes tool and its version workflow.
+const recipeCategories=['Peanuts','Coffee','Ice Cream','Pickles'];
+let recipeCategoryFilter='';
+const recipeLibraryRender=render;
+render=function(){recipeLibraryRender();if(page==='Recipes')showRecipeLibrary()};
+
+function showRecipeLibrary(){
+ view.innerHTML='<h1>Recipe versions</h1><p class="muted">Recipes and source notes organized by product category. Imported formulas stay as drafts until reviewed.</p>';
+ const bar=document.createElement('div');bar.className='bar';
+ const label=document.createElement('label');label.textContent='Product category';
+ const select=document.createElement('select');select.setAttribute('aria-label','Product category');
+ for(const category of ['',...new Set([...recipeCategories,...rows('recipes').map(r=>r.category||'Uncategorized')])]){
+  const option=document.createElement('option');option.value=category;option.textContent=category||'All categories';select.append(option);
+ }
+ select.value=recipeCategoryFilter;select.onchange=()=>{recipeCategoryFilter=select.value;showRecipeLibrary()};label.append(select);bar.append(label);
+ if(canManage())bar.append(dailyButton('+ Create recipe version',()=>bom(),true),dailyButton('Import recipe documents',chooseRecipeDocuments));
+ view.append(bar);
+ const recipes=rows('recipes').filter(r=>!recipeCategoryFilter||(r.category||'Uncategorized')===recipeCategoryFilter)
+  .sort((a,b)=>(a.category||'').localeCompare(b.category||'')||a.name.localeCompare(b.name));
+ table(recipes,['Recipe','Category','Range','Version','State','Actions'],r=>[r.name,r.category||'Uncategorized',r.subcategory||'',r.version,r.imported_recipe&&r.status==='Draft'?'Draft · review required':r.status||'Legacy','']);
+ const recipeTable=view.lastElementChild;
+ recipeTable.querySelectorAll('tbody tr').forEach((row,index)=>{
+  const recipe=recipes[index];row.lastElementChild.append(dailyButton('View recipe',()=>viewRecipeSource(recipe)));
+  if(canManage()&&recipe.status==='Draft'){
+   row.lastElementChild.append(dailyButton('Edit draft',()=>editRecipe(recipe.id)));
+   if(!recipe.imported_recipe||recipe.formula_reviewed)row.lastElementChild.append(dailyButton('Approve version',()=>action('approve_recipe',recipe.id)));
+  }
+ });
+ const documents=rows('recipe_documents').filter(r=>!recipeCategoryFilter||r.category===recipeCategoryFilter);
+ if(documents.length){
+  const heading=document.createElement('h2');heading.textContent='Source documents & process notes';view.append(heading);
+  table(documents,['Document','Category','Contents'],d=>[d.name,d.category,'']);
+  view.lastElementChild.querySelectorAll('tbody tr').forEach((row,index)=>row.lastElementChild.append(dailyButton('Read source',()=>viewRecipeDocument(documents[index]))));
+ }
+}
+
+function recipeReadDialog(title,html){
+ const dialog=document.createElement('dialog');dialog.style.width='820px';
+ dialog.innerHTML='<h2>'+esc(title)+'</h2>'+html;
+ dialog.append(dailyButton('Close',()=>dialog.close()));dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+}
+
+function viewRecipeSource(recipe){
+ const issues=recipe.status==='Draft'&&recipe.review_issues?.length?'<p>'+recipe.review_issues.map(esc).join('<br>')+'</p>':'';
+ const variants=recipe.source_variants||[];
+ const body=variants.length?variants.map((v,index)=>'<h3>Source '+(index+1)+' · '+esc(v.document)+'</h3><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(v.text)+'</pre>').join(''):'<pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(recipe.instructions||'')+'</pre>';
+ recipeReadDialog(recipe.name,'<p>'+esc(recipe.category||'Uncategorized')+' · '+esc(recipe.status)+'</p>'+issues+body);
+}
+
+function viewRecipeDocument(document_){recipeReadDialog(document_.name,'<p>'+esc(document_.category)+'</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(document_.paragraphs.map(p=>p.text).join('\n\n'))+'</pre>')}
+
+async function chooseRecipeDocuments(){
+ const picker=document.createElement('input');picker.type='file';picker.accept='.odt';picker.multiple=true;
+ picker.onchange=async()=>{
+  try{
+   const files=[...picker.files];if(!files.length)return;
+   if(files.length>8||files.some(f=>f.size>2*1024*1024)||files.reduce((sum,f)=>sum+f.size,0)>6*1024*1024)throw Error('Select up to eight ODT files, no larger than 2 MB each and 6 MB together.');
+   const documents=[];
+   for(const file of files){
+    const bytes=new Uint8Array(await file.arrayBuffer());let binary='';
+    for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+    documents.push({name:file.name,data:btoa(binary)});
+   }
+   const preview=await post('recipe-import/preview',{documents});
+   const dialog=document.createElement('dialog');
+   dialog.innerHTML='<h2>Import recipe documents</h2><p>'+esc(preview.documents)+' documents · '+esc(preview.recipes)+' recipes</p><p>'+Object.entries(preview.categories).map(([c,n])=>esc(c)+': '+esc(n)).join('<br>')+'</p><p>Original instructions and alternate versions are retained. Ingredients with missing amounts or ranges need review. Import creates draft recipes and zero-stock material references.</p><p role="status"></p>';
+   const status=dialog.querySelector('[role=status]');const event_id=crypto.randomUUID();
+   const confirm=dailyButton('Import drafts',async()=>{
+    confirm.disabled=true;status.textContent='Importing…';
+    try{const result=await post('import_recipes',{documents,event_id});dialog.close();await load();alert(result.duplicate?'This saved import already completed. Its recipes are shown in the library.':'Imported '+result.recipes+' new recipes. '+result.skipped+' already-present recipes retained.');}
+    catch(e){status.textContent=e.message;confirm.disabled=false;confirm.textContent='Retry saved import';}
+   },true);
+   dialog.append(dailyButton('Cancel',()=>dialog.close()),confirm);dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+  }catch(e){alert(e.message)}
+ };
+ picker.click();
+}
+
+const categorizedBom=bom;
+bom=function(){categorizedBom();fields.insertAdjacentHTML('afterbegin',field('category','Product category','text',[{id:'',name:'Uncategorized'},...recipeCategories.map(c=>({id:c,name:c}))]));fields.querySelector('[name=category]').required=false;};
+const categorizedEditRecipe=editRecipe;
+editRecipe=function(id){
+ categorizedEditRecipe(id);const recipe=rows('recipes').find(r=>r.id===id);
+ if(recipe.imported_recipe){
+  const summary=document.createElement('p');summary.textContent=recipe.review_issues.join(' ');fields.prepend(summary);
+  fields.insertAdjacentHTML('beforeend','<label><input name="confirm_imported_formula" type="checkbox" required style="display:inline;width:auto"> I reviewed the original formula, base recipes, quantities and finished yield.</label>');
+ }
+};

@@ -3,7 +3,7 @@ import argparse,hashlib,json,os,shutil,subprocess,sys,urllib.request,zipfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='1.0.1'
+VERSION='1.0.2'
 PYTHON_URL='https://www.python.org/ftp/python/3.14.0/python-3.14.0-embed-amd64.zip'
 PYTHON_SHA='8d4d3590c10449d78aa4375f534e6d5f3027d67fdc362dd1a882279db6f90fdf'
 WEBVIEW_URL='https://go.microsoft.com/fwlink/p/?LinkId=2124703'
@@ -49,9 +49,9 @@ def build(nsis,update,runtime=None,bootstrapper=None,out=None):
         subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-Command',"$env:PSModulePath=[IO.Path]::Combine($PSHOME,'Modules'); $s=Get-AuthenticodeSignature -LiteralPath $env:PRODUCTION_WEBVIEW_BOOTSTRAPPER; if ($s.Status -ne 'Valid' -or $s.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation(?:,|$)') { throw 'Microsoft WebView2 publisher signature is not valid' }"],env=environment,check=True)
     shutil.copy2(bootstrapper,payload/'MicrosoftEdgeWebView2Setup.exe')
     shutil.copy2(ROOT/'scripts/install_production_payload.ps1',payload/'Install-Production.ps1')
-    readme='''BACKWOODS PRODUCTION 1.0.1 - WINDOWS INSTALLER
+    readme='''BACKWOODS PRODUCTION 1.0.2 - WINDOWS INSTALLER
 
-Run Backwoods-Production-Setup-1.0.1.exe using the same Windows account as before.
+Run Backwoods-Production-Setup-1.0.2.exe using the same Windows account as before.
 Close Production first. Setup installs the original desktop launcher and the
 bundled Python runtime. If Microsoft WebView2 Runtime is missing, its signed
 Microsoft setup downloads the runtime; an internet connection is then required.
