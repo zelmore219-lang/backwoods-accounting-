@@ -16,7 +16,7 @@ pm.save_provider(ledger,{'id':'hrmy','name':'HR.my external workflow'})
 batch=pm.create_batch(ledger,{'requestKey':'native-fixture-payroll','companyId':'backwoods','method':'manual','periodStart':'2026-10-19','periodEndExclusive':'2026-10-26','payDate':'2026-10-30','providerId':'hrmy','entries':[{'employeeId':'fixture-staff','assignmentId':'fixture-job','payType':'hourly','rateCents':1500,'regularMinutes':2400,'overtimeMinutes':300,'overtimeRateCents':2250,'bonusCents':5000}]})
 pm.review_batch(ledger,{'id':batch['id'],'reviewed':True,'overtimeReviewed':True,'reason':'Fictional native acceptance review'})
 pm.approve_batch(ledger,{'id':batch['id'],'confirmed':True})
-assert batch['totals'][0]['grossCents']==76250
+assert batch['payload']['entries'][0]['calculation']['grossCents']==76250
 ledger.close()
 fixture_server=server.ThreadingHTTPServer(('127.0.0.1',0),server.Handler);fixture_server.application=fixture_app
 threading.Thread(target=fixture_server.serve_forever,daemon=True).start()
