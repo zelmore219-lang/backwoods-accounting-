@@ -12,6 +12,12 @@ $runtimeZip = Join-Path $stage 'python-3.14.0.zip'
 Invoke-WebRequest 'https://www.python.org/ftp/python/3.14.0/python-3.14.0-embed-amd64.zip' -OutFile $runtimeZip
 if ((Get-FileHash $runtimeZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne '8d4d3590c10449d78aa4375f534e6d5f3027d67fdc362dd1a882279db6f90fdf') { throw 'The retained Python runtime checksum differs.' }
 Expand-Archive $runtimeZip (Join-Path $app 'runtime')
+$runtime = Join-Path $app 'runtime'
+$dlls = Join-Path $runtime 'DLLs'
+New-Item -ItemType Directory -Force $dlls | Out-Null
+Get-ChildItem $runtime -Filter '*.pyd' -File | Move-Item -Destination $dlls
+Get-ChildItem $runtime -Filter '*.dll' -File | Where-Object { $_.Name -notmatch '^(python3|python314|vcruntime140|vcruntime140_1)\.dll$' } | Move-Item -Destination $dlls
+Copy-Item tests/fixtures/production-desktop/python314._pth (Join-Path $runtime 'python314._pth')
 $python = Join-Path $app 'runtime/python.exe'
 $program = Join-Path $app 'app'
 $env:BACKWOODS_DB_PATH = Join-Path $data 'backwoods.db'
