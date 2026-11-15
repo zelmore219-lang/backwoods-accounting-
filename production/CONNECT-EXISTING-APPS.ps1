@@ -1,6 +1,17 @@
-param([string]$Origin = 'http://127.0.0.1:8080')
+param([string]$Origin)
 $ErrorActionPreference = 'Stop'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME,'Modules')
+function Test-ProductionOrigin([string]$Address) {
+ try { $page=Invoke-WebRequest -Uri $Address -UseBasicParsing -TimeoutSec 3; return $page.Content -match '<title>\s*Backwoods Production\s*</title>' }
+ catch { return $false }
+}
+if (!$Origin) {
+ foreach ($candidate in @('http://127.0.0.1:8765','http://127.0.0.1:8080')) {
+  if (Test-ProductionOrigin $candidate) { $Origin=$candidate; break }
+ }
+}
 if ($Origin -notmatch '^http://(127\.0\.0\.1|localhost):[0-9]+$') { throw 'Connection setup only accepts the local Production server.' }
+if (!(Test-ProductionOrigin $Origin)) { throw 'Open the existing Backwoods Production app before running connection setup.' }
 $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 function Send-Production([string]$Path, $Data) {
  $options = @{ Uri=($Origin + '/api/' + $Path); WebSession=$session; TimeoutSec=90 }

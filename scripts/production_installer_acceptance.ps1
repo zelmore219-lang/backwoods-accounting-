@@ -57,6 +57,10 @@ try {
   if (!$ready) { Start-Sleep -Milliseconds 250 }
  } until ($ready -or (Get-Date) -gt $deadline)
  if (!$ready -or !(Test-Path -LiteralPath $database)) { throw 'Normal launch did not start Production and its retained data directory.' }
+ $setupError=Join-Path $stage 'expected-setup-before-manager.txt'
+ $arguments='-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+(Join-Path $app 'CONNECT-EXISTING-APPS.ps1')+'"'
+ $process=Start-Process powershell.exe -ArgumentList $arguments -Wait -PassThru -RedirectStandardError $setupError
+ if ($process.ExitCode -eq 0 -or (Get-Content -LiteralPath $setupError -Raw) -notmatch 'Create your original manager account') { throw 'Connection setup did not identify the installed Production desktop server before requesting credentials.' }
  $before=(Get-FileHash -LiteralPath (Join-Path $app 'app/server.py') -Algorithm SHA256).Hash
  Run-Setup 10
  if ((Get-FileHash -LiteralPath (Join-Path $app 'app/server.py') -Algorithm SHA256).Hash -ne $before) { throw 'Setup changed an application that was running.' }
@@ -117,7 +121,7 @@ c.close()
  [IO.File]::WriteAllText($stopFile,'stop');$walProcess.WaitForExit(10000) | Out-Null
  if (!(Test-Path -LiteralPath $legacyDatabase) -or !(Test-Path -LiteralPath (Join-Path $stage 'retained-desktop-data/backwoods.db'))) { throw 'Migration removed an original database.' }
  Run-Window
- @{ sourceCommit=$env:GITHUB_SHA; version='1.0.0'; freshInstall=$true; originalDesktopLaunch=$true; nativeWebViewRender=$true; originalLauncherAndScreenAssetsPreserved=$true; legacyUpgrade=$true; reinstall=$true; applicationBackups=$true; existingDatabaseBytesPreserved=$true; nativePythonAndCryptography=$true; runningAppReplacementBlocked=$true; modifiedPayloadRejected=$true; uninstallPreservesRecordsAndUnrelatedFiles=$true; portableWalDatabaseMigratedWithoutDeletingOriginal=$true; otherAppFeedsChanged=$false } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ACCEPTANCE.json')
+ @{ sourceCommit=$env:GITHUB_SHA; version='1.0.0'; freshInstall=$true; originalDesktopLaunch=$true; nativeWebViewRender=$true; originalLauncherAndScreenAssetsPreserved=$true; installedConnectionOriginDetected=$true; legacyUpgrade=$true; reinstall=$true; applicationBackups=$true; existingDatabaseBytesPreserved=$true; nativePythonAndCryptography=$true; runningAppReplacementBlocked=$true; modifiedPayloadRejected=$true; uninstallPreservesRecordsAndUnrelatedFiles=$true; portableWalDatabaseMigratedWithoutDeletingOriginal=$true; otherAppFeedsChanged=$false } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ACCEPTANCE.json')
 } catch {
  $_ | Out-String | Set-Content -LiteralPath (Join-Path $output 'INSTALLER-ERROR.txt')
  if (Test-Path -LiteralPath (Join-Path $env:TEMP 'Backwoods-Production-Setup-error.txt')) { Get-Content -LiteralPath (Join-Path $env:TEMP 'Backwoods-Production-Setup-error.txt') | Add-Content -LiteralPath (Join-Path $output 'INSTALLER-ERROR.txt') }
