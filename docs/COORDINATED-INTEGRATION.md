@@ -78,6 +78,29 @@ inventory writes against the older Vendor stock writer.
 
 Full owner instructions: [COORDINATED-OWNER-GUIDE.md](COORDINATED-OWNER-GUIDE.md).
 
+## Published release acceptance
+
+Main **8.2.10**, Vendor **4.1.9** and Accounting **1.0.8** are published at
+[the coordinated release](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/apps-coordinated-2026-11-14).
+Application source: `30be05c6dd89e640cdef3721bc47420a2a89ba56`.
+Workflow [43666029194](https://github.com/zelmore219-lang/backwoods-accounting-/actions/runs/43666029194)
+passed the full build, all three actual Windows install/reinstall checks and
+publication. Main's saved-record check exposed two Electron Sessions opening
+the same physical profile; the release reuses the already-open Session when
+its directory matches while preserving chooser-selected alternate profiles.
+Native checks confirm retained Main history, Vendor storage and Accounting's
+original expense, approved imports and manual $762.50 payroll draft on reinstall.
+All six public downloads independently match the accepted manifest's byte count
+and SHA-256. The updater selects the new versions and reports current once the
+installed version matches. The temporary privileged retest workflow was removed
+after acceptance; the existing normal release workflow remains the publisher.
+
+Employee Windows **0.4.6** was separately accepted in workflow `43635778527`
+and published from source `f00c69b810f864e9d799fe955de76164d9518c2b`.
+Its public installer hash was independently verified. The existing signed
+Employee Android **0.4.3** entry is unchanged; its original update-signing key
+is unavailable. No physical-device or live payroll-provider acceptance is implied.
+
 ## External prerequisites
 
 No ADP or other new provider API credentials, sandbox, or verified import schema

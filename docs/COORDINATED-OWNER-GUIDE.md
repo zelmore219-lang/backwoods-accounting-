@@ -1,8 +1,18 @@
 # Backwoods coordinated apps and payroll: owner guide
 
-Target packages: Main 8.2.10; Vendor 4.1.9; Business Accounting 1.0.8;
-Employee Windows 0.4.6. Check the release/run status before calling these installed.
+Published packages: Main 8.2.10; Vendor 4.1.9; Business Accounting 1.0.8;
+Employee Windows 0.4.6. Main/Vendor/Accounting Windows and Android downloads
+were independently verified against the accepted build. Windows install/reinstall
+checks passed. Confirm the installed version on each device after updating.
 The existing Driver release and Employee Android release are retained.
+
+[Main, Vendor and Accounting downloads](https://github.com/zelmore219-lang/backwoods-accounting-/releases/tag/apps-coordinated-2026-11-14)
+and [Employee Windows download](https://github.com/zelmore219-lang/backwoods-brew-releases/releases/tag/employees-0.4.6).
+Existing installations can use **App updates → Check → Download → Install**.
+Main/Vendor expose **Settings → Open app updates**; Accounting also exposes
+**Help → App updates…**. Save work and back up before installing over the existing
+app. Updated paper-onboarding screens are available in Employee Windows; the
+retained Employee Android 0.4.3 does not deliver the new Windows-only screens.
 
 ## Install and connect
 
