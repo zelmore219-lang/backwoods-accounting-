@@ -43,7 +43,7 @@ export async function mountPayrollManagement({host,user,api,notice}){
  async function refresh(){data=await api('/api/payroll-management');if(host.isConnected)render();}
  function render(){
   const batches=data.batches;
-  host.innerHTML=`<div class="page-title"><div><div class="eyebrow">PAYROLL PREPARATION</div><h1>Payroll Management</h1><p>Prepare and approve gross wages here. Your external provider calculates final taxes, makes deposits and handles supported filings.</p></div><div class="actions">${owner?'<button data-pm="connect">Connect Employee</button>':''}<button data-pm="sync" ${!data.connection?'disabled':''}>Sync approved Employee hours</button></div></div>
+  host.innerHTML=`<div class="page-title"><div><div class="eyebrow">PAYROLL PREPARATION</div><h1>Payroll Management</h1><p>Prepare and approve gross wages here. Your external provider calculates final taxes, makes deposits and handles supported filings.</p></div><div class="actions">${owner?'<button data-pm="connect">Connect Employee</button><button data-pm="pest-connect">Connect Pest Control</button>':''}<button data-pm="sync" ${!data.connection?'disabled':''}>Sync approved Employee hours</button></div></div>
   <section class="panel"><h2>Employee connection</h2><p>${data.connection?'Connected to the reviewed Employee workspace. Last synchronized: '+esc(data.lastSync?.at||'—'):'Connect the existing company owner to Employee to retrieve the roster and approved hours. No Gusto account is required.'}</p>
   ${(data.lastSync?.issues||[]).map(i=>`<p class="amount-negative">${esc(i.start+'–'+i.endExclusive+': '+i.message)}</p>`).join('')}
   ${(data.lastSync?.missingEmployeeIds||[]).length?'<p class="amount-negative">Some previously linked Employee profiles are missing from the latest roster. Review their identity before changing payroll links.</p>':''}
@@ -174,6 +174,9 @@ export async function mountPayrollManagement({host,user,api,notice}){
    if(action==='remove-addition')button.closest('[data-pm-addition]').remove();
    if(action==='preview'){
     const result=await endpoint('preview',batchInput(button.closest('form')));host.querySelector('[data-pm-preview]').innerHTML=`<h3>Gross payroll preview: ${money(result.entries.reduce((s,e)=>s+e.calculation.grossCents,0))}</h3>${result.issues.map(i=>'<p>'+esc(i)+'</p>').join('')}<p class="small muted">No payroll batch, provider submission or financial posting was created by this preview.</p>`;
+   }
+   if(action==='pest-connect'){
+    const preview=await endpoint('pest-preview',{});form('Connect Pest Control billing','pest-connect',`<p>${preview.invoices} issued/voided invoices · department Pest Control.</p><p>Same legal company: ${esc(preview.companyId)} · verified Pest project: ${esc(preview.project)}.</p><input type="hidden" name="companyId" value="${esc(preview.companyId)}">${check('confirmed','I reviewed the same legal company and approve importing Pest Control billing into these books.')}`,'Connect and import');
    }
    if(action==='sync'){await endpoint('sync',{});notice('Approved Employee roster and hours synchronized.');await refresh();}
    if(action==='connect'){
