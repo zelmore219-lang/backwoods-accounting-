@@ -129,6 +129,15 @@ test('Main navigation repair and preserved Vendor business logic match reviewed 
       const start=code.indexOf('\nwindow.__bwAccountingCloudContext=');
       const end=code.indexOf('\n};',start)+3;
       assert(start>0&&end>start);restored=code.slice(0,start)+code.slice(end).replace(/^\n+/,'');
+      // Remove only the separately tested stock transaction adapter, then
+      // compare every remaining business byte with the inspected native build.
+      restored=restored.replace('import {planStockWrite} from "../production-stock.mjs";\n','');
+      const guardStart=restored.indexOf('if(r.name==="products"&&!r.created&&!r.deleted)');
+      const guardEnd=restored.indexOf('if(r.deleted)',guardStart);
+      assert(guardStart>0&&guardEnd>guardStart);restored=restored.slice(0,guardStart)+restored.slice(guardEnd);
+      restored=restored.replace('flush(){if(this.flushing)return this.flushing;this.stockBlocked=false;','flush(){if(this.flushing)return this.flushing;')
+        .replace('if(!this.stockBlocked&&this.operations.some(t=>!e.has(t.token)))return this.flush()','if(this.operations.some(t=>!e.has(t.token)))return this.flush()')
+        .replace('}catch(s){this.fail(r,s,t.name);if(t.name==="products"){this.stockBlocked=true;break}}}}}','}catch(s){this.fail(r,s,t.name)}}}}');
       for(const metadata of ['unitCost:Number(Ce.cost||0),accountingCostCaptured:true,','unitCost:Number((xe.products.find(p=>p.id===Z.productId)||{}).cost||0),accountingCostCaptured:true,'])
         restored=restored.split(metadata).join('');
     }

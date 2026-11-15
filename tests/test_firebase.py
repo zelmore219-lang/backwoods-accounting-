@@ -14,13 +14,17 @@ class MemoryVault:
     def save(self,value):self.value=value
 
 class FirebaseTests(unittest.TestCase):
-    def test_rules_merge_only_adds_accounting_to_supplied_baseline(self):
+    def test_rules_preserve_baseline_except_reviewed_stock_guard_and_accounting(self):
         root=Path(__file__).resolve().parents[1]/'firebase'
         original=(root/'firestore.original.rules').read_text()
         merged=(root/'firestore.rules').read_text()
         start=merged.index('\n    // BEGIN AUTOMATIC ACCOUNTING ADDITION')
         end=merged.index('    // DENY ALL OTHER FIRESTORE ACCESS',start)
-        self.assertEqual(merged[:start]+merged[end:],original)
+        preserved=merged[:start]+merged[end:]
+        a=preserved.index('    function productionStockSafe()');b=preserved.index('    match /vendorOrders/',a)
+        oa=original.index('    match /vendorProducts/');ob=original.index('    match /vendorOrders/',oa)
+        self.assertEqual(preserved[:a]+preserved[b:],original[:oa]+original[ob:])
+        self.assertIn('productionStockSafe()',preserved[a:b])
         added=merged[start:end]
         self.assertIn('request.auth.uid == ownerUid',added)
         self.assertIn("role() in ['owner','admin','administrator']",added)
