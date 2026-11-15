@@ -391,12 +391,13 @@ def production_import(payload):
         if sum(i['debit']-i['credit'] for i in lines):raise AccountingError('Unbalanced Production journal')
         doc=record('production-journal',r,lines,date_=r.get('date'));doc['id']='production:'+str(data['sourceId'])+':'+sid
         docs.append(doc)
+    suppliers={r['id']:r.get('data',{}).get('name',r['id']) for r in data.get('productionRecords',[]) if r.get('kind')=='suppliers'}
     for r in data.get('productionRecords',[]):
         sid=identifier(r);value=r.get('data',{})
         doc=record('production-support',{'id':sid,'date':value.get('date') or data.get('baselineDate') or '1970-01-01','memo':str(r.get('kind',''))},[],reference=sid)
         doc['original']=r;doc['id']='production-support:'+str(data['sourceId'])+':'+sid
         if r.get('kind')=='invoices' and value.get('status')=='Approved':
-            doc.update(kind='production-payable',party=str(value.get('supplier','')),reference=str(value.get('number',sid)),amount=money(value,'amount'),balance=money(value,'amount'))
+            doc.update(kind='production-payable',party=str(suppliers.get(value.get('supplier'),value.get('supplier',''))),reference=str(value.get('number',sid)),amount=money(value,'amount'),balance=money(value,'amount'))
         docs.append(doc)
     return docs,accounts,[]
 
@@ -411,6 +412,20 @@ def prepare(payload, source):
 
 def catalog_items(payload,source):
     data=unwrap(payload)
+    if source=='production':
+        result=[]
+        for row in data.get('productionRecords',[]):
+            value=row.get('data',{});kind=row.get('kind')
+            if kind=='materials':
+                count=value.get('quantity',0);unit=value.get('unit','lb');cost=value.get('cost',0);reserved=0
+            elif kind=='batches' and value.get('status')!='In Production':
+                count=float(value.get('packages',0))-sum(float(value.get(k,0)) for k in ['delivered','written_off','converted_units','vendor_transferred'])+float(value.get('returned',0))
+                reserved=value.get('reserved',0);unit='lb' if value.get('bulk') else 'each'
+                if value.get('bulk'):count=count*float(value['output'])/float(value['packages']);reserved=float(reserved)*float(value['output'])/float(value['packages'])
+                cost=value.get('per_lb',0) if value.get('bulk') else value.get('unit',0)
+            else:continue
+            result.append({'id':str(row['id']),'sku':str(value.get('sku','')),'name':str(value.get('name',row['id'])),'location':'Production','onHand':max(0,float(count)),'reserved':float(reserved),'unitCost':str(cost),'unit':unit,'caseQty':1,'reorderLevel':float(value.get('reorder',0)),'price':'0'})
+        return result
     products={str(p.get('id')):p for p in data.get('products',[]) if p.get('id') is not None}
     rows=data.get('inventory',[]) if source=='main' else data.get('products',[])
     result=[]

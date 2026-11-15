@@ -47,6 +47,12 @@ class ProductionTests(unittest.TestCase):
   transfer=self.c.execute('SELECT * FROM integration_transfers').fetchone();self.assertEqual(json.loads(transfer['payload'])['quantity'],16)
   self.post();b=self.balances();self.assertEqual(b['1200'],3000);self.assertEqual(b['1260'],0)
   self.assertEqual(self.post()['added'],0)
+  ledger=self.books.ledger()
+  try:
+   catalog=[json.loads(r[0]) for r in ledger.db.execute("SELECT payload FROM catalog WHERE source='production'")]
+   self.assertEqual(next(r for r in catalog if r['sku']=='PEA-8')['onHand'],0)
+   self.assertEqual(next(r for r in catalog if r['name']=='Peanuts')['onHand'],90)
+  finally:ledger.close()
   vendor={'data':{'orders':[{'id':'sale','status':'delivered','createdAt':date.today().isoformat(),'items':[{'qty':4,'price':4}]}],'products':[{'id':'vendor-product','cost':1.875}],'inventoryMovements':[{'id':'receipt','type':'production_transfer','productionTransferId':transfer['id'],'quantity':16,'unitCost':1.875,'date':date.today().isoformat()},{'id':'delivery','type':'delivery','quantity':-4,'unitCost':1.875,'date':date.today().isoformat()}]}}
   self.books.process({'source':'vendor','payload':vendor});self.books.process({'source':'vendor','payload':vendor})
   b=self.balances();self.assertEqual(b['1200'],2250);self.assertEqual(b['5000'],750);self.assertEqual(b['4000'],-1600)
