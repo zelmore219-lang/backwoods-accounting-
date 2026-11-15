@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = (Get-Location).Path
 $stage = Join-Path $env:RUNNER_TEMP 'production-connection-native'
-$app = Join-Path $stage 'Application'
+$app = Join-Path $env:LOCALAPPDATA 'Backwoods Production/Application'
 $data = Join-Path $env:LOCALAPPDATA 'Backwoods Production/Data'
 if (Test-Path (Join-Path $data 'backwoods.db')) { throw 'A disposable Windows runner is required; existing Production records were found.' }
 New-Item -ItemType Directory -Force $app, $data | Out-Null
@@ -35,7 +35,7 @@ Verify-Window
 $update = Join-Path $stage 'update'
 Expand-Archive dist/production/Backwoods-Production-Connected-Update.zip $update
 foreach ($pass in @(1,2)) {
- & (Join-Path $update 'UPDATE-PRODUCTION.ps1') -TargetDirectory $app -Quiet
+ & (Join-Path $update 'UPDATE-PRODUCTION.ps1') -Quiet
  if (!$?) { throw 'Production application update failed.' }
  Push-Location $program
  try {

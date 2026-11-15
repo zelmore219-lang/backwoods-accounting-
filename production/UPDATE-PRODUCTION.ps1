@@ -5,6 +5,7 @@ $source = Join-Path $PSScriptRoot 'application'
 if (!(Test-Path (Join-Path $source 'server.py'))) { throw 'Extract the complete update ZIP before running this updater.' }
 if (Get-Process -Name 'Backwoods Production' -ErrorAction SilentlyContinue) { throw 'Close Backwoods Production, including its notification icon, then run this update again.' }
 if ($TargetDirectory) { $chosen = (Resolve-Path -LiteralPath $TargetDirectory).Path }
+elseif (Test-Path (Join-Path $env:LOCALAPPDATA 'Backwoods Production/Application/Backwoods Production.exe')) { $chosen = Join-Path $env:LOCALAPPDATA 'Backwoods Production/Application' }
 else {
  $picker = New-Object System.Windows.Forms.FolderBrowserDialog
  $picker.Description = 'Select the existing Backwoods Production Application folder (the folder containing Backwoods Production.exe).'
