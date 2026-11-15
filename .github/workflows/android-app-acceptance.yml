@@ -1,6 +1,11 @@
 name: Test the five published Android apps
 on:
   workflow_dispatch:
+    inputs:
+      apps:
+        description: 'JSON list of apps to test'
+        type: string
+        default: '["main","vendor","accounting","employees","driver"]'
   push:
     branches: [codex/coordinated-app-integration]
     paths: [.github/workflows/android-app-acceptance.yml, scripts/android_published_smoke.py]
@@ -13,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [main, vendor, accounting, employees, driver]
+        app: ${{ fromJSON(inputs.apps || '["main","vendor","accounting","employees","driver"]') }}
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}

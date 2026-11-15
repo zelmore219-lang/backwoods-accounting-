@@ -30,7 +30,13 @@ def open_app(stage):
  for attempt in range(18):
   time.sleep(2)
   last=snapshot(stage)
-  if 'password' in last and ('sign in' in last or 'login' in last or 'username' in last):break
+  xml=(ROOT/(stage+'.xml')).read_text()
+  nodes=list(ET.fromstring(xml[xml.index('<?xml'):]).iter('node'))
+  inputs=[node for node in nodes if node.attrib.get('class')=='android.widget.EditText']
+  # WebView exposes password inputs structurally without exposing their hint as
+  # text on every version. Require the real editable fields and masked input.
+  password=any(node.attrib.get('password')=='true' for node in inputs)
+  if (('password' in last or password) and ('sign in' in last or 'login' in last or 'username' in last) and len(inputs)>=2):break
   # Dismiss OS permission prompts on the disposable device, not application data.
   for label in ['While using the app','Allow','Don’t allow','Don\'t allow']:
    xml=(ROOT/(stage+'.xml')).read_text()
