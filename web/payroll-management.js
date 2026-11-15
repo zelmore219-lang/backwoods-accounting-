@@ -151,9 +151,13 @@ export async function mountPayrollManagement({host,user,api,notice}){
    try{
     const response=await fetch(download.href);if(!response.ok){const error=await response.json();throw Error(error.error||'The approved export is not ready.');}
     const url=new URL(download.href),format=url.searchParams.get('format');
-    const blob=await response.blob(),object=URL.createObjectURL(blob),a=document.createElement('a');
-    a.href=object;a.download='backwoods-payroll-'+(format==='final_template'?'final-result-template':'review')+'-'+url.searchParams.get('id')+'.'+(format==='xlsx'?'xlsx':'csv');document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(object),1000);
-    notice('Approved file downloaded. This did not submit payroll or record a payment.');
+    // Android saves authenticated HTTP attachments through its native picker.
+    // A blob: URL cannot be fetched by that picker. The export is immutable and
+    // idempotent, so validate first and download the same authorized URL.
+    await response.body?.cancel();
+    const a=document.createElement('a');
+    a.href=download.href;a.download='backwoods-payroll-'+(format==='final_template'?'final-result-template':'review')+'-'+url.searchParams.get('id')+'.'+(format==='xlsx'?'xlsx':'csv');document.body.append(a);a.click();a.remove();
+    notice('Approved file opened for saving. This did not submit payroll or record a payment.');
    }catch(error){notice(error.message,true);}
    return;
   }

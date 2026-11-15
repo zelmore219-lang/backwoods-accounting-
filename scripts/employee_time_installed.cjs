@@ -16,7 +16,7 @@ const api=(page,route,data)=>page.evaluate(async({route,data})=>{
  try{
   console.log("Opening installed Accounting");
   const page=await app.firstWindow();await page.waitForURL(/^http:\/\/127\.0\.0\.1:/,{timeout:90000});
-  const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,'1.0.8');
+  const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,JSON.parse(fs.readFileSync(path.join(__dirname,'../desktop/package.json'))).version);
   await api(page,reuse?'/api/auth/login':'/api/auth/setup',{name:'Fictitious Accounting Owner',username:'time.fixture.owner',password:'fixture-only-long-passphrase'});
   if(!reuse)await api(page,'/api/manual-document',{kind:'expense',date:'2026-10-18',party:'Fictitious utility',reference:'KEEP-TIME-FIXTURE',amount:'12.50',account:'5100'});
   await page.reload();await page.locator('nav [data-view="imports"]').click();

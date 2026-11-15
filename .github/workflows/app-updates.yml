@@ -22,6 +22,10 @@ on:
         description: 'Keep the exact published Accounting packages when only Main/Vendor change'
         default: false
         type: boolean
+      reuse_source_apps:
+        description: 'Retain exact published Main/Vendor bytes after verifying unchanged runtime sources'
+        default: false
+        type: boolean
       publish:
         description: 'Publish packages and activate the update feed after validation'
         default: true
@@ -41,6 +45,7 @@ jobs:
       VENDOR_VERSION: ${{ inputs.vendor_version }}
       MAIN_VERSION: ${{ inputs.main_version }}
       REUSE_ACCOUNTING: ${{ inputs.reuse_accounting }}
+      REUSE_SOURCE_APPS: ${{ inputs.reuse_source_apps }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -126,11 +131,10 @@ jobs:
           python scripts/build_source_installers.py vendor --builder "$PWD/desktop/node_modules/.bin/electron-builder" --nsis "$NSIS_COMPILER"
       - name: Validate identities and prepare update feed
         run: |
-          if [ "$REUSE_ACCOUNTING" = "true" ]; then
-            python scripts/build_update_release.py --tag "$RELEASE_TAG" --reuse-accounting
-          else
-            python scripts/build_update_release.py --tag "$RELEASE_TAG"
-          fi
+          extra=()
+          if [ "$REUSE_ACCOUNTING" = "true" ]; then extra+=(--reuse-accounting); fi
+          if [ "$REUSE_SOURCE_APPS" = "true" ]; then extra+=(--reuse-source-apps); fi
+          python scripts/build_update_release.py --tag "$RELEASE_TAG" "${extra[@]}"
       - name: Stage exact built packages privately for Windows acceptance
         env:
           GH_TOKEN: ${{ github.token }}
@@ -192,8 +196,59 @@ jobs:
             }
           }
 
+  android-accounting-acceptance:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: '21'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Retrieve the exact Accounting build and prepare its native test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_KEY: ${{ secrets.ANDROID_UPDATE_KEYSTORE_BASE64 }}
+        run: |
+          mkdir -p dist/update-release
+          gh release download "coordinated-build-$GITHUB_SHA" --repo "$GITHUB_REPOSITORY" --dir dist/update-release --pattern '*Accounting*.apk' --pattern 'backwoods-updates.json'
+          python -m pip install Pillow==13.0.0
+          python scripts/prepare_accounting_android.py
+          python - <<'PY'
+          import base64,hashlib,json,os
+          from pathlib import Path
+          folder=Path('.build-resources/android-signing');folder.mkdir(parents=True,exist_ok=True)
+          key=folder/'debug.keystore';key.write_bytes(base64.b64decode(os.environ['SIGNING_KEY'],validate=True));key.chmod(0o600)
+          feed=json.loads(Path('dist/update-release/backwoods-updates.json').read_text());assert feed['sourceCommit']==os.environ['GITHUB_SHA']
+          info=feed['apps']['accounting']['android'];apk=Path('dist/update-release')/info['url'].rsplit('/',1)[1]
+          assert apk.stat().st_size==info['size'] and hashlib.file_digest(apk.open('rb'),'sha256').hexdigest()==info['sha256']
+          Path('dist/accounting-accepted-apk.txt').write_text(str(apk.resolve()))
+          PY
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+          (cd android-apps/accounting/android && bash gradlew --no-daemon --max-workers=2 assembleDebugAndroidTest)
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            adb install -r "$(cat dist/accounting-accepted-apk.txt)"
+            adb install -r android-apps/accounting/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w -r -e class com.backwoodsbrew.accounting.PayrollExportTest com.backwoodsbrew.accounting.test/androidx.test.runner.AndroidJUnitRunner | tee dist/accounting-native-payroll.log
+            python -c "from pathlib import Path;s=Path('dist/accounting-native-payroll.log').read_text();assert 'OK (1 test)' in s and 'FAILURES' not in s,s"
+
   publish:
-    needs: [build, windows-acceptance]
+    needs: [build, windows-acceptance, android-accounting-acceptance]
     if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     steps:
