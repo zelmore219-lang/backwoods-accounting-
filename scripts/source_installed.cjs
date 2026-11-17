@@ -21,7 +21,9 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
   if(kind==='main'&&sessions.mainPath===sessions.defaultPath)assert(sessions.same,'One physical profile must use one Electron Session');
   mark('Waiting for '+kind+' packaged page');
   await page.waitForURL('file:///**/index.html',{timeout:60000});
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),JSON.parse(fs.readFileSync(path.join(__dirname,'../source-app-updates',kind,'package.json'))).version);
+  const stagedFeed=path.join(__dirname,'../dist/update-release/backwoods-updates.json');
+  const expectedVersion=fs.existsSync(stagedFeed)?JSON.parse(fs.readFileSync(stagedFeed)).apps[kind].windows.version:JSON.parse(fs.readFileSync(path.join(__dirname,'../source-app-updates',kind,'package.json'))).version;
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),expectedVersion);
   if(kind==='main'){
    await page.getByPlaceholder('Username',{exact:true}).waitFor();
    const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'../.test-fixtures/main-native.json')));
@@ -41,7 +43,7 @@ const [kind,executable,profile]=process.argv.slice(2),reuse=process.argv.include
     assert.deepEqual(JSON.parse(seeded).subscription,fixture.data.subscription);console.log('Verified native seed before reload');
    }
    mark('Signing into fixture Main');
-   await page.reload();await page.getByPlaceholder('Username',{exact:true}).fill('receipt-test');await page.getByPlaceholder('Password',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Login',exact:true}).click();await page.getByRole('heading',{name:'Owner Portal',exact:true}).waitFor();
+   await page.reload();await page.getByPlaceholder('Username',{exact:true}).fill('receipt-test');await page.getByPlaceholder('Password',{exact:true}).fill(fixture.password);await page.getByRole('button',{name:'Sign In',exact:true}).click();await page.getByRole('heading',{name:'Owner Portal',exact:true}).waitFor();
    for(const name of ['Subscriptions','Launch Wizard','Guided Walkthrough'])assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
    const snapshot=await probe();console.log('Native Main storage',JSON.stringify({url:snapshot.url,keys:snapshot.keys,rawLength:snapshot.raw?.length,statePresent:!!snapshot.state}));
    const data=JSON.parse(snapshot.raw||'null');
