@@ -1,5 +1,7 @@
 # Firebase Spark setup — no external host
 
+For a company using the dedicated Driver app and Sales / CRM, use the companion Driver project’s current combined rules and deployment checker. The older Accounting rules below must not replace Driver/CRM protections. CRM uses a separate trusted Functions codebase; this Accounting ledger and its normal financial source feeds retain their existing Spark path.
+
 These builds run the accounting engine **inside the Windows application and Android APK**. Firestore holds the authoritative shared ledger and the source transfers. They do not require Firebase Functions, Firebase Hosting, a separate server, an always-on Windows PC, or a Blaze upgrade. No billing settings or live rules have been changed by this build.
 
 ## One-time company setup
