@@ -2422,12 +2422,8 @@ function Fo(t) {
 function ki(t, n) {
   return dm(t, n).reduce((a, l) => a + Bo(l), 0);
 }
-function hr(t, n) {
-  return bm(t, n);
-}
-function vr(t, n) {
-  return Em(t, n);
-}
+function hr(t,n){window.__bwSharedClock?.open();return t;}
+function vr(t,n){window.__bwSharedClock?.open();return t;}
 function qo(t) {
   return Math.max(0, u((t == null ? void 0 : t.lunchMinutes) || 0));
 }
@@ -9129,142 +9125,10 @@ function qu({
     }, "Reject")) : null
   })));
 }
-function Bu({
-  data: t,
-  setData: n,
-  user: a
-}) {
-  const l = Si(t, a),
-    r = ki(t, a);
-  if (!(De(a == null ? void 0 : a.role) !== "owner")) return null;
-  function o() {
-    n(c => pe(Y(hr(c, a), `Employee clocked in ${a == null ? void 0 : a.username}`, "timeclock")));
-  }
-  function i() {
-    n(c => pe(Y(vr(c, a), `Employee clocked out ${a == null ? void 0 : a.username}`, "timeclock")));
-  }
-  return e.createElement(k, {
-    className: "mb-5 border-amber-800 bg-amber-950/20"
-  }, e.createElement("div", {
-    className: "flex flex-col md:flex-row md:items-center md:justify-between gap-4"
-  }, e.createElement("div", null, e.createElement("h3", {
-    className: "text-xl font-black"
-  }, "Employee Time Clock"), e.createElement("p", {
-    className: "text-stone-400"
-  }, l ? `Clocked in at ${new Date(l.clockIn).toLocaleTimeString()} - Status: ${l.status || "pending"}` : "You are currently clocked out."), e.createElement("p", {
-    className: "text-stone-500 text-sm"
-  }, "Paid hours today: ", r.toFixed(2))), e.createElement("div", {
-    className: "flex gap-2"
-  }, !l && e.createElement(G, {
-    onClick: o
-  }, "Clock In"), l && e.createElement(Be, {
-    onClick: i
-  }, "Clock Out"))));
-}
-function Uu({
-  data: t,
-  setData: n
-}) {
-  const [a, l] = j.useState(""),
-    [r, s] = j.useState(""),
-    [o, i] = j.useState(""),
-    [c, d] = j.useState(null),
-    [m, f] = j.useState(!1),
-    y = c ? vt(c) : null,
-    v = y ? Hl(t || {}, y) : null,
-    w = y ? pa(t || {}).filter(h => String(h.username || "").toLowerCase() === String(y.username || "").toLowerCase() && String(h.date || "") === C()).slice(0, 4) : [];
-  async function I() {
-    const h = String(a || "").trim().toLowerCase();
-    if (!h || !r) return i("Enter employee username and password."), null;
-    const g = mt().filter(b => String((b == null ? void 0 : b.username) || "").trim().toLowerCase() === h && b.active !== !1);
-    let S = null;
-    for (const b of g) if (await Er(b, r)) {
-      S = b;
-      break;
-    }
-    if (!S) return i("Wrong username or password for time clock."), null;
-    const F = vt({
-      id: S.id,
-      username: S.username,
-      displayName: S.displayName || S.name || S.username,
-      role: De(S.role),
-      employeeId: S.employeeId,
-      storeId: S.storeId
-    });
-    return De(F.role) === je ? (i("Owner accounts should use full login for time changes."), null) : F;
-  }
-  async function P(h) {
-    if (m) return;
-    f(!0), i("");
-    const g = await I();
-    if (!g) {
-      f(!1);
-      return;
-    }
-    const S = Hl(t || {}, g);
-    if (h === "in" && S) {
-      d(g), i(`${g.displayName || g.username} is already clocked in at ${new Date(S.clockIn).toLocaleTimeString()}.`), f(!1);
-      return;
-    }
-    if (h === "out" && !S) {
-      d(g), i(`${g.displayName || g.username} is already clocked out.`), f(!1);
-      return;
-    }
-    const F = h === "in" ? "clocked in" : "clocked out";
-    n(b => {
-      const E = h === "in" ? hr(b, g) : vr(b, g);
-      return pe(Y(E, `Login screen time clock: ${g.username} ${F}`, "timeclock"));
-    }), d(g), s(""), i(`${g.displayName || g.username} ${F} at ${new Date().toLocaleTimeString()}.`), f(!1);
-  }
-  return e.createElement(k, {
-    className: "w-full max-w-md lg:max-w-none border-amber-800 bg-amber-950/20"
-  }, e.createElement("div", {
-    className: "flex items-center justify-between gap-3 mb-3"
-  }, e.createElement("div", null, e.createElement("h2", {
-    className: "text-2xl font-black"
-  }, "Employee Time Clock"), e.createElement("p", {
-    className: "text-stone-400"
-  }, "Clock in or out without opening the app.")), e.createElement(Ol, {
-    className: "text-amber-400",
-    size: 30
-  })), e.createElement("div", {
-    className: "space-y-3"
-  }, e.createElement(x, {
-    placeholder: "Employee username",
-    value: a,
-    onChange: h => l(h.target.value)
-  }), e.createElement(x, {
-    placeholder: "Employee password",
-    type: "password",
-    value: r,
-    onChange: h => s(h.target.value),
-    onKeyDown: h => {
-      h.key === "Enter" && P(v ? "out" : "in");
-    }
-  }), e.createElement("div", {
-    className: "grid grid-cols-2 gap-2"
-  }, e.createElement(G, {
-    disabled: m,
-    onClick: () => P("in")
-  }, e.createElement(Bn, {
-    size: 16
-  }), " Clock In"), e.createElement(Be, {
-    disabled: m,
-    onClick: () => P("out")
-  }, e.createElement(Xn, {
-    size: 16
-  }), " Clock Out")), o && e.createElement("p", {
-    className: o.includes("Wrong") || o.includes("Enter") || o.includes("Owner") ? "text-red-300" : "text-emerald-300"
-  }, o), y && e.createElement("div", {
-    className: "bg-stone-950 border border-stone-800 rounded-xl p-3"
-  }, e.createElement("p", {
-    className: "font-black"
-  }, y.displayName || y.username), e.createElement("p", {
-    className: "text-stone-400 text-sm"
-  }, v ? `Currently clocked in since ${new Date(v.clockIn).toLocaleTimeString()}` : "Currently clocked out"), e.createElement("p", {
-    className: "text-stone-500 text-xs mt-1"
-  }, "Today: ", w.length, " punch record(s)"))));
-}
+function Bu(){return null;}
+
+function Uu(){return null;}
+
 function Hu({
   onLogin: t,
   data: n,
@@ -9402,7 +9266,7 @@ function Hu({
     disabled: d
   }, e.createElement(mi, {
     size: 16
-  }), " ", d ? "Signing in..." : "Login"))), e.createElement(Uu, {
+  }), " ", d ? "Signing in..." : "Sign In"))), e.createElement(Uu, {
     data: n,
     setData: a
   })));
@@ -15367,10 +15231,10 @@ function Ds({
     }, `Signed write-up ${N}`, "employee")));
   }
   function gn() {
-    n(N => pe(Y(hr(N, s), `Employee clocked in ${f || m}`, "timeclock")));
+    window.__bwSharedClock?.open();
   }
   function xo() {
-    n(N => pe(Y(vr(N, s), `Employee clocked out ${f || m}`, "timeclock")));
+    window.__bwSharedClock?.open();
   }
   function jn() {
     const N = [...new Set([...Xe.map(Et => Et.date), ...ct.map(Et => Zt(Et))].filter(Boolean))].sort();
@@ -32336,6 +32200,7 @@ function Ry() {
     [w, I] = j.useState(!1);
 
   window.__bwAccountingCloudContext=()=>({uid:Ba?.currentUser?.uid,projectId:cd.projectId,auth:Ba});
+  window.__bwSharedClockContext=()=>a&&a.active!==false&&Ba?.currentUser?({uid:Ba.currentUser.uid,projectId:cd.projectId,auth:Ba}):null;
 e.useEffect(()=>{window.dispatchEvent(new Event('bw:accounting-changed'));},[r,a,t]);
   window.__bwAccountingSnapshot = () => {
     if (t || !a || a.active===false || !['owner','admin','administrator'].includes(String(a.role||'').toLowerCase())) return null;
