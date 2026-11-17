@@ -113,15 +113,18 @@ test('prepared update packages include the profile helper, sender and renderer a
     assert(fs.existsSync(path.join(folder,kind==='main'?'www/index.html':'dist/index.html')));
   }
 });
-test('Main navigation repair and preserved Vendor business logic match reviewed baselines',()=>{
+test('Main shared clock changes and preserved Vendor business logic match reviewed baselines',()=>{
   const cases=[
-    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'3ba8df1dd053970edde939577e530959953a05e288b4046a26261d209ccc2504'},
+    {kind:'main',file:'www/assets/main-CnsZnSKS.js',sha:'b425224022c90fcd9d921c68694af6d3d3c189f307076ef6d587320468067f2d'},
     {kind:'vendor',file:'dist/assets/index-CWBa4KXx.js',sha:'7b639f76f6c0a6d541895bc4a6753d33ad237c7b4ac9074d7dcc260225043ec1'},
   ];
   for(const item of cases){
     const code=fs.readFileSync(path.join(ROOT,'source-app-updates',item.kind,item.file),'utf8');
     let restored;
     if(item.kind==='main'){
+      assert(code.includes('function Bu(){return null;}'));
+      assert(code.includes('function Uu(){return null;}'));
+      assert(code.includes('window.__bwSharedClock?.open()'));
       const start=code.indexOf('window.__bwAccountingCloudContext=');
       const end=code.indexOf('\n  function P(',start);
       assert(start>0&&end>start);restored=code.slice(0,start).trimEnd()+code.slice(end);
