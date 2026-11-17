@@ -69,3 +69,15 @@ class FirebaseTests(unittest.TestCase):
         self.client.expires=0;self.assertEqual(self.client.bearer(),'new-token')
         self.client.connection['uid']='other-owner';self.client.expires=0
         with self.assertRaisesRegex(AccountingError,'identity changed'):self.client.bearer()
+
+    def test_crm_schedules_are_read_only_and_financial_events_are_rejected(self):
+        url='https://firestore.googleapis.com/v1/projects/'+CONFIG['projectId']+'/databases/(default)/documents:runQuery'
+        event={'id':{'stringValue':'schedule-1'},'operation':{'stringValue':'schedule.changed'},'reason':{'stringValue':'Holiday'},'at':{'stringValue':'2026-11-16T18:00:00Z'},'orders':{'arrayValue':{'values':[]}},'financialPosting':{'booleanValue':False},'inventoryMovement':{'booleanValue':False}}
+        self.documents[url]=[{'document':{'fields':event}}]
+        before='\n'.join(self.ledger.db.iterdump())
+        result=self.client.schedule_events()
+        self.assertEqual(result[0]['id'],'schedule-1')
+        self.assertEqual('\n'.join(self.ledger.db.iterdump()),before)
+        self.assertEqual(self.calls[-1][1]['structuredQuery']['limit'],100)
+        event['financialPosting']['booleanValue']=True
+        with self.assertRaisesRegex(AccountingError,'financial'):self.client.schedule_events()

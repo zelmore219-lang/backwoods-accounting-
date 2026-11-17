@@ -102,6 +102,7 @@ e.useEffect(()=>{window.dispatchEvent(new Event('bw:accounting-changed'));},[r,a
 
 VENDOR_HOOK=r'''
 window.__bwAccountingCloudContext=()=>s.mode==='synced'&&!s.pendingCount?({uid:n?.uid,projectId:ch.projectId,auth:Hr}):null;
+window.__bwCrmData=()=>n&&n.active!==false&&r&&!['customer','pending'].includes(n.role)?{orders:e.orders||[],routes:e.routePlans||[],user:{uid:n.uid,role:n.role}}:null;
 q.useEffect(()=>{window.dispatchEvent(new Event('bw:accounting-changed'));},[e,n,r,s.mode,s.pendingCount]);
 
 window.__bwAccountingSnapshot=()=>{
@@ -147,7 +148,11 @@ def build(main_dir,vendor_asar,output):
                    'type:"credit_return",quantity:qe,unitCost:Number((xe.products.find(p=>p.id===Z.productId)||{}).cost||0),accountingCostCaptured:true,reference:r.invoiceNumber')
     s=replace_once(s,'type:`return_${yn}`,quantity:Bt,reference:r.invoiceNumber',
                    'type:`return_${yn}`,quantity:Bt,unitCost:Number(Ce.cost||0),accountingCostCaptured:true,reference:r.invoiceNumber')
+    s=replace_once(s,'try{await f.current.update(b)}','try{const next=typeof b==="function"?b(xc(d.current)):b;window.__bwAssertCrmChange?.(d.current,next);await f.current.update(next)}')
     bundle.write_text(s)
+    shutil.copy2(ROOT/'connectors/crm-schedules.js',vendor_dest/'dist/crm-schedules.js')
+    vendor_html=vendor_dest/'dist/index.html'
+    vendor_html.write_text(replace_once(vendor_html.read_text(),'</body>','<script src="./crm-schedules.js"></script></body>'))
     vendor_main=vendor_dest/'electron/main.cjs'
     s=replace_once(vendor_main.read_text(),"win.loadURL('http://localhost:5173')","win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))")
     vendor_main.write_text(s)

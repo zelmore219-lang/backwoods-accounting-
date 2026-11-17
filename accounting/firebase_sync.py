@@ -124,6 +124,27 @@ class Firebase:
         if packet.get('type')!='business-accounting-feed' or packet.get('schemaVersion')!=1:raise AccountingError('Unsupported Firebase accounting feed')
         packet['exportedAt']=get('exportedAt')
         return digest,packet
+    def schedule_events(self):
+        # Nonfinancial metadata only. It never enters the accounting importer.
+        def decode(value):
+            if 'stringValue' in value:return value['stringValue']
+            if 'booleanValue' in value:return value['booleanValue']
+            if 'integerValue' in value:return int(value['integerValue'])
+            if 'nullValue' in value:return None
+            if 'arrayValue' in value:return [decode(v) for v in value['arrayValue'].get('values',[])]
+            if 'mapValue' in value:return {k:decode(v) for k,v in value['mapValue'].get('fields',{}).items()}
+            raise AccountingError('Unsupported CRM schedule metadata')
+        query={'structuredQuery':{'from':[{'collectionId':'crmAccountingScheduleEvents'}],'orderBy':[{'field':{'fieldPath':'at'},'direction':'DESCENDING'}],'limit':100}}
+        url='https://firestore.googleapis.com/v1/projects/'+CONFIG['projectId']+'/databases/(default)/documents:runQuery'
+        response=self.transport(url,query,token=self.bearer()) or []
+        rows=[]
+        for result in response:
+            document=result.get('document')
+            if not document:continue
+            data={k:decode(v) for k,v in document.get('fields',{}).items()}
+            if data.get('financialPosting') is not False or data.get('inventoryMovement') is not False:raise AccountingError('CRM event attempted a financial or inventory operation')
+            rows.append({k:data.get(k) for k in ['id','operation','changeId','reason','at','orders']})
+        return rows
     def publish_service(self,origin):
         if not origin or not self.bearer():return
         if getattr(self,'published_origin',None)==origin:return

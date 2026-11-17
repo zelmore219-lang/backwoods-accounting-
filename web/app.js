@@ -127,3 +127,7 @@ document.addEventListener('submit',async event=>{
 });
 
 if(window.backwoodsUpdates){const b=document.createElement('button');b.textContent='App updates';b.type='button';b.addEventListener('click',()=>window.backwoodsUpdates.open());document.querySelector('nav')?.append(b);}
+
+// CRM schedules are read-only operational annotations, separate from ledger imports.
+const importScreenWithCrm=imports;
+imports=()=>importScreenWithCrm()+`<section class="panel"><h2>Sales / CRM schedule updates</h2><p class="small muted">Date changes do not post invoices, payments, or inventory movements.</p>${state.firebaseStatus?.scheduleError?`<p class="notice">${esc(state.firebaseStatus.scheduleError)}</p>`:''}${(state.firebaseStatus?.scheduleEvents||[]).length?(state.firebaseStatus.scheduleEvents||[]).map(event=>`<article><h3>${esc(event.reason||event.operation)}</h3><p class="small">${esc(event.at||'')}</p>${(event.orders||[]).map(order=>`<p>${esc(order.invoiceId||order.orderId)} · sales ${esc(order.salesDate||'')} · prepare ${esc(order.preparationDate||'')} · deliver ${esc(order.deliveryDate||'')}</p>`).join('')}</article>`).join(''):'<p>No CRM schedule events have been received.</p>'}</section>`;

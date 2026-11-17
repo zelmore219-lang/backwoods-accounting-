@@ -85,6 +85,9 @@ class Application:
                     if not link:raise AccountingError('Link the Firebase account from the owner settings before importing cloud records.')
                 receipts=self.firebase_status.get('sources',{})
                 self.firebase_status={'connected':True,'message':'Firebase connected. Checking retail and wholesale records.','sources':receipts}
+                try:
+                    with self.firebase_lock:self.firebase_status['scheduleEvents']=self.firebase.schedule_events()
+                except Exception as error:self.firebase_status['scheduleError']=str(error)
                 for source in ['main','vendor']:
                     try:
                         with self.firebase_lock:result=self.firebase.snapshot(source,hashes.get(source))

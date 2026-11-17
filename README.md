@@ -120,3 +120,9 @@ If `npm ci` says the lockfile is missing, make sure you extracted the **entire Z
 ## App updates
 
 Main, Vendor and Business Accounting now include Windows and Android update wizards. See [the update and GitHub setup guide](UPDATING.md) for the one-time installation, signing compatibility, and the Actions workflow used to publish future updates.
+
+## Sales / CRM operating schedules
+
+The companion CRM change connects to the existing `backwoodsbrew-e3584-d52a3` project. Updated Vendor Windows/Android renderers show approved preparation/delivery dates and reject changes to recall-held orders. Business Accounting reads nonfinancial CRM schedule annotations through its existing Firebase owner connection and displays them under Automatic app connections; those annotations never enter the ledger importer. Existing Vendor financial snapshots continue their established import path.
+
+Use the CRM-aware merged rules from the companion Driver update, preserving its existing delivery/security protections. Do not republish the older standalone Accounting baseline over a Driver/CRM-enabled project. Build/install the updated companion apps before activating live temporary routes. Source changes and emulator/unit checks are complete; live rules/backend rollout and physical app installation have not been performed from this chat.
