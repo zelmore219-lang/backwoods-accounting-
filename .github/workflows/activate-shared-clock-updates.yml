@@ -1,0 +1,60 @@
+name: Activate accepted shared PIN Main and Vendor updates
+on:
+  push:
+    branches: [codex/shared-pin-clock]
+    paths: [.github/workflows/activate-shared-clock-updates.yml]
+permissions:
+  contents: write
+  actions: read
+concurrency:
+  group: shared-clock-feed-activation
+  cancel-in-progress: false
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ACCEPTED_SOURCE: 0146f75ef8de1b8dcdfb58220cb52f345aa1eb7b
+      ACCEPTED_RUN: '43990638671'
+      RELEASE_TAG: apps-shared-clock-2026-11-17
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Wait for exact native Windows and Android acceptance
+        run: |
+          python scripts/verify_reused_build.py "$ACCEPTED_SOURCE"
+          python - <<'PYTHON'
+          import json,os,subprocess,time
+          repo=os.environ['GITHUB_REPOSITORY'];run=os.environ['ACCEPTED_RUN'];sha=os.environ['ACCEPTED_SOURCE']
+          def api(path):return json.loads(subprocess.check_output(['gh','api','repos/'+repo+'/'+path],text=True))
+          for attempt in range(160):
+           acceptance=api('actions/runs/'+run)
+           assert acceptance['head_sha']==sha
+           if acceptance['status']=='completed':break
+           print('Waiting for exact native acceptance',flush=True);time.sleep(15)
+          assert acceptance['status']=='completed' and acceptance['conclusion']=='success', 'Acceptance has not passed; feed remains unchanged'
+          jobs=api('actions/runs/'+run+'/jobs')['jobs']
+          required={'build','windows-acceptance','android-accounting-acceptance','android-release-upgrade (main)','android-release-upgrade (vendor)','android-release-upgrade (accounting)'}
+          assert required<={j['name'] for j in jobs}
+          assert all(j['status']=='completed' and j['conclusion']=='success' for j in jobs if j['name'] in required)
+          PYTHON
+      - name: Verify all six exact staged packages
+        run: |
+          mkdir -p dist/accepted-clock
+          gh release download "coordinated-build-$ACCEPTED_SOURCE" --repo "$GITHUB_REPOSITORY" --dir dist/accepted-clock
+          python - <<'PYTHON'
+          import hashlib,json,os
+          from pathlib import Path
+          out=Path('dist/accepted-clock');feed=json.loads((out/'backwoods-updates.json').read_text())
+          assert feed['sourceCommit']==os.environ['ACCEPTED_SOURCE']
+          assert {k:v['windows']['version'] for k,v in feed['apps'].items()}=={'main':'8.2.12','vendor':'4.1.12','accounting':'1.0.12'}
+          for entry in feed['apps'].values():
+           for platform in ['windows','android']:
+            info=entry[platform];p=out/info['url'].rsplit('/',1)[1]
+            assert p.stat().st_size==info['size'] and hashlib.file_digest(p.open('rb'),'sha256').hexdigest()==info['sha256']
+          PYTHON
+      - name: Publish accepted packages and activate existing updater feed last
+        run: python scripts/publish_updates.py --tag "$RELEASE_TAG" --directory dist/accepted-clock

@@ -65,7 +65,7 @@ def run():
                     page.goto(origin)
                     page.get_by_placeholder('Username',exact=True).fill('receipt-test')
                     page.get_by_placeholder('Password',exact=True).fill(PASSWORD)
-                    page.get_by_role('button',name='Login',exact=True).click()
+                    page.get_by_role('button',name='Sign In',exact=True).click()
                     page.get_by_role('button',name='POS Register',exact=True).wait_for(timeout=15000)
                     for text in ['Central Accounting','Wholesale Management','Subscriptions','Launch Wizard','Guided Walkthrough']:assert page.get_by_role('button',name=text,exact=True).count()==0,text
                     page.get_by_role('heading',name='Owner Portal',exact=True).wait_for()

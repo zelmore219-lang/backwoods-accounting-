@@ -39,7 +39,7 @@ def check_login(browser, kind, directory, label):
                            if route.request.url.startswith(base) else route.abort())
                 page.goto(base)
                 button = page.get_by_role('button', name=re.compile(
-                    r'^\s*Login\s*$' if kind == 'main' else r'^\s*Sign in\s*$', re.I))
+                    r'^\s*Sign In\s*$' if kind == 'main' else r'^\s*Sign in\s*$', re.I))
                 button.wait_for(state='visible', timeout=15000)
                 # Initial effects update state after mount; the regression crashed
                 # during that transition, even though bundle syntax was valid.
